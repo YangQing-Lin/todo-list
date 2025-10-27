@@ -16,10 +16,10 @@ func main() {
 	fmt.Println("=== 测试后端API ===\n")
 
 	// 1. 健康检查
-	testEndpoint(baseURL, "GET", "/", nil)
+	TestEndpoint(baseURL, "GET", "/", nil)
 
 	// 2. 获取空列表
-	testEndpoint(baseURL, "GET", "/api/todos", nil)
+	TestEndpoint(baseURL, "GET", "/api/todos", nil)
 
 	// 3. 创建Todo
 	todoData := map[string]string{
@@ -27,19 +27,19 @@ func main() {
 		"description": "这是一个测试Todo项目",
 	}
 	jsonData, _ := json.Marshal(todoData)
-	testEndpoint(baseURL, "POST", "/api/todos", jsonData)
+	TestEndpoint(baseURL, "POST", "/api/todos", jsonData)
 
 	// 4. 再次获取列表
-	testEndpoint(baseURL, "GET", "/api/todos", nil)
+	TestEndpoint(baseURL, "GET", "/api/todos", nil)
 
 	fmt.Println("\n=== 测试前端代理 ===\n")
 
 	// 测试前端代理到后端
 	frontendBaseURL := "http://localhost:3000"
-	testEndpoint(frontendBaseURL, "GET", "/api/todos", nil)
+	TestEndpoint(frontendBaseURL, "GET", "/api/todos", nil)
 }
 
-func testEndpoint(baseURL, method, endpoint string, data []byte) {
+func TestEndpoint(baseURL, method, endpoint string, data []byte) {
 	var req *http.Request
 	var err error
 

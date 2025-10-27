@@ -19,11 +19,11 @@ func main() {
 
 	// 测试1: 健康检查
 	fmt.Println("1. 测试健康检查端点 /")
-	testEndpoint(baseURL, "GET", "/", nil)
+	TestEndpoint(baseURL, "GET", "/", nil)
 
 	// 测试2: 获取空todo列表
 	fmt.Println("\n2. 测试获取待办事项列表 /api/todos")
-	testEndpoint(baseURL, "GET", "/api/todos", nil)
+	TestEndpoint(baseURL, "GET", "/api/todos", nil)
 
 	// 测试3: 创建新的todo
 	fmt.Println("\n3. 测试创建新的待办事项")
@@ -32,16 +32,16 @@ func main() {
 		"description": "完成第一个Go项目",
 	}
 	jsonData, _ := json.Marshal(todoData)
-	testEndpoint(baseURL, "POST", "/api/todos", jsonData)
+	TestEndpoint(baseURL, "POST", "/api/todos", jsonData)
 
 	// 测试4: 再次获取todo列表
 	fmt.Println("\n4. 再次获取待办事项列表")
-	testEndpoint(baseURL, "GET", "/api/todos", nil)
+	TestEndpoint(baseURL, "GET", "/api/todos", nil)
 
 	fmt.Println("\n=== 测试完成 ===")
 }
 
-func testEndpoint(baseURL, method, endpoint string, data []byte) {
+func TestEndpoint(baseURL, method, endpoint string, data []byte) {
 	var req *http.Request
 	var err error
 
