@@ -166,6 +166,7 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(parts[3])
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, "INVALID_ID", fmt.Sprintf("无效的ID格式: %v", err))
+		return
 	}
 
 	var req struct {

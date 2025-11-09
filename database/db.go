@@ -179,7 +179,7 @@ func (db *DB) GetTodoByID(id int) (*model.Todo, error) {
 		todo.DueDate = &dueDate.String
 	}
 	if completedAt.Valid {
-		todo.CompletedAt = &dueDate.String
+		todo.CompletedAt = &completedAt.String
 	}
 
 	return &todo, nil

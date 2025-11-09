@@ -40,10 +40,14 @@ const TodoPage: React.FC = () => {
     }
 
     try {
-      // 暂时从列表中移除（因为后端还没实现删除接口）
-      setTodos(todos.filter(todo => todo.id !== id));
+      const response = await todoApi.deleteTodo(id);
+      if (response.success) {
+        setTodos(todos.filter(todo => todo.id !== id));
+      } else {
+        setError(response.error?.message || '删除失败');
+      }
     } catch (err: any) {
-      setError('删除失败，请重试');
+      setError(err.response?.data?.error?.message || '删除失败，请重试');
     }
   };
 
@@ -52,19 +56,24 @@ const TodoPage: React.FC = () => {
     const todo = todos.find(t => t.id === id);
     if (!todo) return;
 
-    // 暂时在本地更新状态（因为后端还没实现更新接口）
-    const updatedTodos = todos.map(t => {
-      if (t.id === id) {
-        return {
-          ...t,
-          status: t.status === 'pending' ? 'completed' : 'pending',
-          completed_at: t.status === 'pending' ? new Date().toISOString() : undefined
-        };
-      }
-      return t;
-    });
+    const newStatus = todo.status === 'pending' ? 'completed' : 'pending';
 
-    setTodos(updatedTodos);
+    try {
+      const response = await todoApi.updateTodo(id, { status: newStatus });
+      if (response.success) {
+        const updatedTodos = todos.map(t => {
+          if (t.id === id) {
+            return response.data;
+          }
+          return t;
+        });
+        setTodos(updatedTodos);
+      } else {
+        setError(response.error?.message || '更新失败');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || '更新失败，请重试');
+    }
   };
 
   // 过滤Todos
