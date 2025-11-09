@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 	"todo-list/api"
 	"todo-list/database"
 	"todo-list/handler"
@@ -27,8 +29,12 @@ func main() {
 
 	// 启动服务器
 	server := &http.Server{
-		Addr:    ":7789",
-		Handler: mux,
+		Addr:           ":7789",
+		Handler:        mux,
+		ReadTimeout:    15 * time.Second, // 读请求超时
+		WriteTimeout:   15 * time.Second, // 写响应超时
+		IdleTimeout:    60 * time.Second, // Keep-Alive 空闲超时
+		MaxHeaderBytes: 1 << 20,          // 1MB 头部限制
 	}
 
 	// 优雅关闭
@@ -44,8 +50,14 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
+	// 等待最多30秒让现有请求完成
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	log.Println("Shutting down server...")
-	if err := server.Close(); err != nil {
+	// Shutdown() 等待现有请求完成再关闭
+	if err := server.Shutdown(ctx); err != nil {
 		log.Printf("Server forced to shutdown: %v", err)
 	}
+	log.Println("Server exited")
 }
