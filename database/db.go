@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -13,6 +14,8 @@ import (
 type DB struct {
 	conn *sql.DB
 }
+
+var ErrVersionConflict = errors.New("todo version conflict")
 
 func New(dbPath string) (*DB, error) {
 	conn, err := sql.Open("sqlite3", dbPath)
@@ -39,6 +42,7 @@ func (db *DB) initSchema() error {
 	schema := `
   	CREATE TABLE IF NOT EXISTS todos (
   		id INTEGER PRIMARY KEY AUTOINCREMENT,
+  		version INTEGER NOT NULL DEFAULT 1,
   		title TEXT NOT NULL,
   		description TEXT,
   		status TEXT NOT NULL DEFAULT 'pending',
@@ -53,8 +57,57 @@ func (db *DB) initSchema() error {
   	CREATE INDEX IF NOT EXISTS idx_created_at ON todos(created_at DESC);
 	`
 
-	_, err := db.conn.Exec(schema)
-	return err
+	if _, err := db.conn.Exec(schema); err != nil {
+		return err
+	}
+
+	return db.ensureVersionColumn()
+}
+
+func (db *DB) ensureVersionColumn() error {
+	rows, err := db.conn.Query(`PRAGMA table_info(todos);`)
+	if err != nil {
+		return fmt.Errorf("failed to inspect todos table: %w", err)
+	}
+	defer rows.Close()
+
+	hasVersionColumn := false
+	for rows.Next() {
+		var (
+			cid        int
+			name       string
+			dataType   string
+			notNull    int
+			defaultVal sql.NullString
+			pk         int
+		)
+		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultVal, &pk); err != nil {
+			return fmt.Errorf("failed to scan todos schema: %w", err)
+		}
+		if name == "version" {
+			hasVersionColumn = true
+			break
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed to iterate todos schema: %w", err)
+	}
+
+	if hasVersionColumn {
+		return nil
+	}
+
+	alterStmt := `ALTER TABLE todos ADD COLUMN version INTEGER NOT NULL DEFAULT 1`
+	if _, err := db.conn.Exec(alterStmt); err != nil {
+		return fmt.Errorf("failed to add version column: %w", err)
+	}
+
+	if _, err := db.conn.Exec(`UPDATE todos SET version = 1 WHERE version IS NULL`); err != nil {
+		return fmt.Errorf("failed to backfill version column: %w", err)
+	}
+
+	return nil
 }
 
 // Close 关闭数据库连接
@@ -65,8 +118,8 @@ func (db *DB) Close() error {
 // CreateTodo 创建待办事项
 func (db *DB) CreateTodo(todo *model.Todo) error {
 	query := `
-  		INSERT INTO todos (title, description, status, priority, due_date, created_at, updated_at)
-  		VALUES (?, ?, ?, ?, ?, ?, ?)
+  		INSERT INTO todos (title, description, status, priority, due_date, created_at, updated_at, version)
+  		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := db.conn.Exec(
@@ -78,6 +131,7 @@ func (db *DB) CreateTodo(todo *model.Todo) error {
 		todo.DueDate,
 		todo.CreatedAt,
 		todo.UpdatedAt,
+		todo.Version,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create todo: %w", err)
@@ -95,7 +149,7 @@ func (db *DB) CreateTodo(todo *model.Todo) error {
 // ListTodos获取所有待办事项
 func (db *DB) ListTodos() ([]model.Todo, error) {
 	query := `
-  		SELECT id, title, description, status, priority, due_date,
+  		SELECT id, version, title, description, status, priority, due_date,
   		       created_at, updated_at, completed_at
   		FROM todos
   		ORDER BY created_at DESC
@@ -110,28 +164,21 @@ func (db *DB) ListTodos() ([]model.Todo, error) {
 	todos := make([]model.Todo, 0)
 	for rows.Next() {
 		var todo model.Todo
-		var dueDate, completedAt sql.NullString
 
 		err := rows.Scan(
 			&todo.ID,
+			&todo.Version,
 			&todo.Title,
 			&todo.Description,
 			&todo.Status,
 			&todo.Priority,
-			&dueDate,
+			&todo.DueDate,
 			&todo.CreatedAt,
 			&todo.UpdatedAt,
-			&completedAt,
+			&todo.CompletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan todo: %w", err)
-		}
-
-		if dueDate.Valid {
-			todo.DueDate = &dueDate.String
-		}
-		if completedAt.Valid {
-			todo.CompletedAt = &completedAt.String
 		}
 
 		todos = append(todos, todo)
@@ -147,25 +194,25 @@ func (db *DB) ListTodos() ([]model.Todo, error) {
 // GetTodoByID 根据ID获取待办事项
 func (db *DB) GetTodoByID(id int) (*model.Todo, error) {
 	query := `
-  		SELECT id, title, description, status, priority, due_date,
+  		SELECT id, version, title, description, status, priority, due_date,
   		       created_at, updated_at, completed_at
   		FROM todos
   		WHERE id = ?
 	`
 
 	var todo model.Todo
-	var dueDate, completedAt sql.NullString
 
 	err := db.conn.QueryRow(query, id).Scan(
 		&todo.ID,
+		&todo.Version,
 		&todo.Title,
 		&todo.Description,
 		&todo.Status,
 		&todo.Priority,
-		&dueDate,
+		&todo.DueDate,
 		&todo.CreatedAt,
 		&todo.UpdatedAt,
-		&completedAt,
+		&todo.CompletedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -173,13 +220,6 @@ func (db *DB) GetTodoByID(id int) (*model.Todo, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get todo: %w", err)
-	}
-
-	if dueDate.Valid {
-		todo.DueDate = &dueDate.String
-	}
-	if completedAt.Valid {
-		todo.CompletedAt = &completedAt.String
 	}
 
 	return &todo, nil
@@ -190,8 +230,8 @@ func (db *DB) UpdateTodo(todo *model.Todo) error {
 	query := `
   		UPDATE todos
   		SET title = ?, description = ?, status = ?, priority = ?,
-  		    due_date = ?, updated_at = ?, completed_at = ?
-  		WHERE id = ?
+  		    due_date = ?, updated_at = ?, completed_at = ?, version = version + 1
+  		WHERE id = ? AND version = ?
 	`
 
 	todo.UpdatedAt = time.Now()
@@ -206,6 +246,7 @@ func (db *DB) UpdateTodo(todo *model.Todo) error {
 		todo.UpdatedAt,
 		todo.CompletedAt,
 		todo.ID,
+		todo.Version,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update todo: %w", err)
@@ -218,8 +259,10 @@ func (db *DB) UpdateTodo(todo *model.Todo) error {
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("todo not found")
+		return ErrVersionConflict
 	}
+
+	todo.Version++
 
 	return nil
 }

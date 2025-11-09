@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Todo } from '../types';
-import { todoApi } from '../services/api';
+import { todoApi, extractErrorMessage } from '../services/api';
 import TodoItem from '../components/TodoItem';
 import TodoForm from '../components/TodoForm';
 import '../styles/TodoPage.css';
@@ -22,7 +22,7 @@ const TodoPage: React.FC = () => {
         setError(response.error?.message || '获取数据失败');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || '网络错误，请重试');
+      setError(extractErrorMessage(err, '获取数据失败'));
     } finally {
       setLoading(false);
     }
@@ -47,7 +47,7 @@ const TodoPage: React.FC = () => {
         setError(response.error?.message || '删除失败');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || '删除失败，请重试');
+      setError(extractErrorMessage(err, '删除失败'));
     }
   };
 
@@ -59,7 +59,11 @@ const TodoPage: React.FC = () => {
     const newStatus = todo.status === 'pending' ? 'completed' : 'pending';
 
     try {
-      const response = await todoApi.updateTodo(id, { status: newStatus });
+      // 包含version字段以支持并发控制
+      const response = await todoApi.updateTodo(id, {
+        status: newStatus,
+        version: todo.version
+      });
       if (response.success) {
         const updatedTodos = todos.map(t => {
           if (t.id === id) {
@@ -72,7 +76,11 @@ const TodoPage: React.FC = () => {
         setError(response.error?.message || '更新失败');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || '更新失败，请重试');
+      setError(extractErrorMessage(err, '更新失败'));
+      // 如果是版本冲突，刷新数据
+      if (err.response?.status === 409) {
+        fetchTodos();
+      }
     }
   };
 

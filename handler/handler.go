@@ -3,11 +3,12 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
+	"time"
 	"todo-list/database"
 	"todo-list/model"
 )
@@ -40,8 +41,12 @@ func NewHandler(db *database.DB) *Handler {
 func (h *Handler) sendJSON(w http.ResponseWriter, status int, response Response) {
 	buf := new(bytes.Buffer)
 	if err := json.NewEncoder(buf).Encode(response); err != nil {
+		// JSON编码失败，直接返回纯文本错误，不要再尝试调用sendError（会递归）
 		log.Printf("Failed to encode response: %v", err)
-		h.sendError(w, http.StatusInternalServerError, "ENCODE_ERROR", "内部错误")
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal Server Error: Failed to encode response"))
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -157,28 +162,38 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
+	idStr := r.PathValue("id")
+	if idStr == "" {
 		h.sendError(w, http.StatusBadRequest, "INVALID_ID", "无效的ID")
 		return
 	}
 
-	id, err := strconv.Atoi(parts[3])
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, "INVALID_ID", fmt.Sprintf("无效的ID格式: %v", err))
 		return
 	}
 
+	if id <= 0 {
+		h.sendError(w, http.StatusBadRequest, "INVALID_ID", "无效的ID")
+		return
+	}
+
 	var req struct {
-		Title       string  `json:"title"`
-		Description string  `json:"description"`
-		Status      string  `json:"status"`
-		Priority    int     `json:"priority"`
-		DueDate     *string `json:"due_date"`
+		Version     *int       `json:"version"`
+		Title       *string    `json:"title"`
+		Description *string    `json:"description"`
+		Status      *string    `json:"status"`
+		DueDate     *time.Time `json:"due_date"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.sendError(w, http.StatusBadRequest, "INVALID_JSON", fmt.Sprintf("Invalid JSON format: %v", err))
+		return
+	}
+
+	if req.Version == nil || *req.Version < 1 {
+		h.sendError(w, http.StatusBadRequest, "VALIDATION_ERROR", "版本号缺失或无效")
 		return
 	}
 
@@ -194,22 +209,27 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 更新字段
-	if req.Title != "" {
-		todo.Title = req.Title
+	if req.Title != nil {
+		todo.Title = *req.Title
 	}
-	todo.Description = req.Description
-	if req.Status != "" {
-		todo.Status = req.Status
+	if req.Description != nil {
+		todo.Description = *req.Description
 	}
-	if req.Priority > 0 {
-		todo.SetPriority(req.Priority)
+	if req.Status != nil {
+		todo.Status = *req.Status
 	}
 	if req.DueDate != nil {
 		todo.SetDueDate(*req.DueDate)
 	}
 
+	todo.Version = *req.Version
+
 	if err := h.db.UpdateTodo(todo); err != nil {
 		log.Printf("Failed to update todo: %v", err)
+		if errors.Is(err, database.ErrVersionConflict) {
+			h.sendError(w, http.StatusConflict, "VERSION_CONFLICT", "待办事项已被其他请求更新，请刷新后重试")
+			return
+		}
 		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "更新待办事项失败")
 		return
 	}
@@ -232,15 +252,20 @@ func (h *Handler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
+	idStr := r.PathValue("id")
+	if idStr == "" {
 		h.sendError(w, http.StatusBadRequest, "INVALID_ID", "无效的ID")
 		return
 	}
 
-	id, err := strconv.Atoi(parts[3])
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, "INVALID_ID", fmt.Sprintf("无效的Id格式: %v", err))
+		return
+	}
+
+	if id <= 0 {
+		h.sendError(w, http.StatusBadRequest, "INVALID_ID", "无效的ID")
 		return
 	}
 

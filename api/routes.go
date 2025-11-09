@@ -3,8 +3,6 @@ package api
 import (
 	"log"
 	"net/http"
-	"strconv"
-	"strings"
 	"todo-list/handler"
 )
 
@@ -49,50 +47,26 @@ func chain(f http.HandlerFunc, middlewares ...func(http.HandlerFunc) http.Handle
 func SetupRoutes(h *handler.Handler) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	// API路由 - 使用中间件链
-	mux.HandleFunc("/api/todos", chain(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			h.ListTodos(w, r)
-		case http.MethodPost:
-			h.CreateTodo(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}, corsMiddleware, recoverMiddleware))
+	withMiddlewares := func(f http.HandlerFunc) http.HandlerFunc {
+		return chain(f, corsMiddleware, recoverMiddleware)
+	}
 
-	// 单个Todo操作: /api/todos/{id}
-	mux.HandleFunc("/api/todos/", chain(func(w http.ResponseWriter, r *http.Request) {
-		// 提取并验证ID
-		idStr := strings.TrimPrefix(r.URL.Path, "/api/todos/")
+	optionsHandler := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}
 
-		// 检查ID是否为空
-		if idStr == "" {
-			http.Error(w, "ID required", http.StatusBadRequest)
-			return
-		}
+	registerTodoRoutes := func(base string) {
+		mux.HandleFunc("GET "+base, withMiddlewares(h.ListTodos))
+		mux.HandleFunc("POST "+base, withMiddlewares(h.CreateTodo))
+		mux.HandleFunc("OPTIONS "+base, withMiddlewares(optionsHandler))
+		mux.HandleFunc("PUT "+base+"/{id}", withMiddlewares(h.UpdateTodo))
+		mux.HandleFunc("DELETE "+base+"/{id}", withMiddlewares(h.DeleteTodo))
+		mux.HandleFunc("OPTIONS "+base+"/{id}", withMiddlewares(optionsHandler))
+	}
 
-		// 验证ID格式 - 必须是正整数
-		if id, err := strconv.ParseInt(idStr, 10, 64); err != nil || id <= 0 {
-			http.Error(w, "Invalid ID format", http.StatusBadRequest)
-			return
-		}
-
-		// 检查是否有多余的路径（防止 /api/todos/123/xxx）
-		if strings.Contains(idStr, "/") {
-			http.Error(w, "Invalid ID format", http.StatusBadRequest)
-			return
-		}
-
-		switch r.Method {
-		case http.MethodPut:
-			h.UpdateTodo(w, r)
-		case http.MethodDelete:
-			h.DeleteTodo(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}, corsMiddleware, recoverMiddleware))
+	// Versioned routes with legacy aliases for backward compatibility
+	registerTodoRoutes("/api/v1/todos")
+	registerTodoRoutes("/api/todos")
 
 	mux.HandleFunc("/health", h.HealthCheck)
 

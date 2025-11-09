@@ -1,9 +1,9 @@
 export interface Todo {
   id: number;
+  version: number;
   title: string;
   description: string;
   status: 'pending' | 'completed';
-  priority: number; // 1=低, 2=中, 3=高
   due_date?: string;
   created_at: string;
   updated_at: string;
