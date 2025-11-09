@@ -3,38 +3,49 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"todo-list/api"
+	"todo-list/database"
+	"todo-list/handler"
 )
 
 func main() {
-	// 创建路由器并设置路由
-	router := api.NewRouter()
-	handler := router.SetupRoutes()
+	// 初始化数据库
+	db, err := database.New("./todos.db")
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer db.Close()
 
-	// 配置服务器
-	port := ":7789"
-	log.Printf("Go Todo List API Server")
-	log.Printf("========================")
-	log.Printf("Server starting on port %s", port)
-	log.Printf("\nAvailable endpoints:")
-	log.Printf("  GET  /             - Health check")
-	log.Printf("  GET  /health       - Health check")
-	log.Printf("  GET  /api/todos    - List todos")
-	log.Printf("  POST /api/todos    - Create todo")
-	log.Printf("\nTry these commands:")
-	log.Printf("  curl http://localhost%s/", port)
-	log.Printf("  curl http://localhost%s/api/todos", port)
+	// 创建处理器
+	h := handler.NewHandler(db)
+
+	// 设置路由
+	mux := api.SetupRoutes(h)
 
 	// 启动服务器
 	server := &http.Server{
-		Addr:         port,
-		Handler:      handler,
-		ReadTimeout:  10 * 1000000000, // 10 seconds
-		WriteTimeout: 10 * 1000000000, // 10 seconds
+		Addr:    ":7789",
+		Handler: mux,
 	}
 
-	log.Printf("\nServer started successfully!")
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// 优雅关闭
+	go func() {
+		log.Println("Server started on http://localhost:7789")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed: %v", err)
+		}
+	}()
+
+	// 等待中断信号
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server...")
+	if err := server.Close(); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
 	}
 }

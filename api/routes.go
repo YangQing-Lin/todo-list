@@ -2,43 +2,63 @@ package api
 
 import (
 	"net/http"
+	"strings"
 	"todo-list/handler"
 )
 
-// Router 路由器结构体
-type Router struct {
-	handler *handler.Handler
-}
-
-// NewRouter 创建新的路由器
-func NewRouter() *Router {
-	return &Router{
-		handler: handler.NewHandler(),
-	}
-}
-
-// SetupRoutes 设置所有路由
-func (r *Router) SetupRoutes() http.Handler {
+func SetupRoutes(h *handler.Handler) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// API路由
-	mux.HandleFunc("/", r.handler.HealthCheck)
-	mux.HandleFunc("/health", r.handler.HealthCheck)
+	mux.HandleFunc("/api/todos", func(w http.ResponseWriter, r *http.Request) {
+		// CORS
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-	// Todo相关路由
-	mux.HandleFunc("/api/todos", r.handleTodos)
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		switch r.Method {
+		case http.MethodGet:
+			h.ListTodos(w, r)
+		case http.MethodPost:
+			h.CreateTodo(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// 单个Todo操作: /api/todos/{id}
+	mux.HandleFunc("/api/todos/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// 检查是否有ID
+		if strings.TrimPrefix(r.URL.Path, "/api/todos/") == "" {
+			http.Error(w, "ID required", http.StatusBadRequest)
+			return
+		}
+
+		switch r.Method {
+		case http.MethodPut:
+			h.UpdateTodo(w, r)
+		case http.MethodDelete:
+			h.DeleteTodo(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/health", h.HealthCheck)
 
 	return mux
-}
-
-// handleTodos 处理todos相关的请求
-func (r *Router) handleTodos(w http.ResponseWriter, req *http.Request) {
-	switch req.Method {
-	case http.MethodGet:
-		r.handler.ListTodos(w, req)
-	case http.MethodPost:
-		r.handler.CreateTodo(w, req)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
 }
