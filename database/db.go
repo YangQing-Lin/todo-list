@@ -95,7 +95,7 @@ func (db *DB) CreateTodo(todo *model.Todo) error {
 // ListTodos获取所有待办事项
 func (db *DB) ListTodos() ([]model.Todo, error) {
 	query := `
-  		SELECT id, title, description, status, priority, due_date, 
+  		SELECT id, title, description, status, priority, due_date,
   		       created_at, updated_at, completed_at
   		FROM todos
   		ORDER BY created_at DESC
@@ -107,7 +107,7 @@ func (db *DB) ListTodos() ([]model.Todo, error) {
 	}
 	defer rows.Close()
 
-	var todos []model.Todo
+	todos := make([]model.Todo, 0)
 	for rows.Next() {
 		var todo model.Todo
 		var dueDate, completedAt sql.NullString

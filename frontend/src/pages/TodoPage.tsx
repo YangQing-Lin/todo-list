@@ -17,7 +17,7 @@ const TodoPage: React.FC = () => {
     try {
       const response = await todoApi.getTodos();
       if (response.success) {
-        setTodos(response.data.todos);
+        setTodos(response.data.todos || []);
       } else {
         setError(response.error?.message || '获取数据失败');
       }
