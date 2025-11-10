@@ -192,8 +192,8 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Version == nil || *req.Version < 1 {
-		h.sendError(w, http.StatusBadRequest, "VALIDATION_ERROR", "版本号缺失或无效")
+	if req.Version != nil && *req.Version < 1 {
+		h.sendError(w, http.StatusBadRequest, "VALIDATION_ERROR", "版本号无效")
 		return
 	}
 
@@ -222,7 +222,9 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 		todo.SetDueDate(*req.DueDate)
 	}
 
-	todo.Version = *req.Version
+	if req.Version != nil {
+		todo.Version = *req.Version
+	}
 
 	if err := h.db.UpdateTodo(todo); err != nil {
 		log.Printf("Failed to update todo: %v", err)

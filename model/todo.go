@@ -10,9 +10,7 @@ type Todo struct {
 	Version     int        `json:"version"`
 	Title       string     `json:"title"`
 	Description string     `json:"description"`
-	Status      string     `json:"status"`   // pending, completed
-	// Deprecated: Priority is kept only for DB compatibility and legacy API responses.
-	Priority    int        `json:"priority"`
+	Status      string     `json:"status"` // pending, completed
 	DueDate     *time.Time `json:"due_date,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -27,7 +25,6 @@ func NewTodo(title, description string) *Todo {
 		Title:       title,
 		Description: description,
 		Status:      "pending",
-		Priority:    1, // 默认低优先级
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}

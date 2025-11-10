@@ -121,4 +121,5 @@ pids
 # DynamoDB Local files
 .dynamodb/
 
-todo-server
+# Go build output
+/bin/

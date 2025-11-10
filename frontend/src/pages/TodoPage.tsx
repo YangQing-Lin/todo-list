@@ -76,10 +76,11 @@ const TodoPage: React.FC = () => {
         setError(response.error?.message || '更新失败');
       }
     } catch (err: any) {
-      setError(extractErrorMessage(err, '更新失败'));
-      // 如果是版本冲突，刷新数据
+      const message = extractErrorMessage(err, '更新失败');
       if (err.response?.status === 409) {
-        fetchTodos();
+        setError(`${message}（请刷新或重试以获取最新数据）`);
+      } else {
+        setError(message);
       }
     }
   };

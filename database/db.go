@@ -118,8 +118,8 @@ func (db *DB) Close() error {
 // CreateTodo 创建待办事项
 func (db *DB) CreateTodo(todo *model.Todo) error {
 	query := `
-  		INSERT INTO todos (title, description, status, priority, due_date, created_at, updated_at, version)
-  		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  		INSERT INTO todos (title, description, status, due_date, created_at, updated_at, version)
+  		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := db.conn.Exec(
@@ -127,7 +127,6 @@ func (db *DB) CreateTodo(todo *model.Todo) error {
 		todo.Title,
 		todo.Description,
 		todo.Status,
-		todo.Priority,
 		todo.DueDate,
 		todo.CreatedAt,
 		todo.UpdatedAt,
@@ -149,8 +148,8 @@ func (db *DB) CreateTodo(todo *model.Todo) error {
 // ListTodos获取所有待办事项
 func (db *DB) ListTodos() ([]model.Todo, error) {
 	query := `
-  		SELECT id, version, title, description, status, priority, due_date,
-  		       created_at, updated_at, completed_at
+  		SELECT id, version, title, description, status, due_date,
+ 		       created_at, updated_at, completed_at
   		FROM todos
   		ORDER BY created_at DESC
 	`
@@ -171,7 +170,6 @@ func (db *DB) ListTodos() ([]model.Todo, error) {
 			&todo.Title,
 			&todo.Description,
 			&todo.Status,
-			&todo.Priority,
 			&todo.DueDate,
 			&todo.CreatedAt,
 			&todo.UpdatedAt,
@@ -194,7 +192,7 @@ func (db *DB) ListTodos() ([]model.Todo, error) {
 // GetTodoByID 根据ID获取待办事项
 func (db *DB) GetTodoByID(id int) (*model.Todo, error) {
 	query := `
-  		SELECT id, version, title, description, status, priority, due_date,
+  		SELECT id, version, title, description, status, due_date,
   		       created_at, updated_at, completed_at
   		FROM todos
   		WHERE id = ?
@@ -208,7 +206,6 @@ func (db *DB) GetTodoByID(id int) (*model.Todo, error) {
 		&todo.Title,
 		&todo.Description,
 		&todo.Status,
-		&todo.Priority,
 		&todo.DueDate,
 		&todo.CreatedAt,
 		&todo.UpdatedAt,
@@ -229,7 +226,7 @@ func (db *DB) GetTodoByID(id int) (*model.Todo, error) {
 func (db *DB) UpdateTodo(todo *model.Todo) error {
 	query := `
   		UPDATE todos
-  		SET title = ?, description = ?, status = ?, priority = ?,
+  		SET title = ?, description = ?, status = ?,
   		    due_date = ?, updated_at = ?, completed_at = ?, version = version + 1
   		WHERE id = ? AND version = ?
 	`
@@ -241,7 +238,6 @@ func (db *DB) UpdateTodo(todo *model.Todo) error {
 		todo.Title,
 		todo.Description,
 		todo.Status,
-		todo.Priority,
 		todo.DueDate,
 		todo.UpdatedAt,
 		todo.CompletedAt,
