@@ -22,9 +22,38 @@ Full-stack Todo List application - a Go learning project:
 6. **知识分享**: 解释 Go 语言特性、HTTP 原理、数据库优化等
 
 ### What Claude SHOULD NOT Do ❌
-1. **直接修改代码**: 不使用 `Edit` 或 `Write` 工具直接修改项目代码
-2. **替代学习过程**: 用户需要自己手动编写代码来学习
+1. **直接修改后端代码**: 不使用 `Edit` 或 `Write` 工具直接修改 Go 代码
+2. **替代学习过程**: 用户需要自己手动编写后端代码来学习
 3. **一次性完成功能**: 应该引导用户分步实现，而不是给出完整方案
+
+### Special Rule: Frontend vs Backend 🎯
+**学习重点：后端 Go 语言开发**
+
+- **Backend (Go)**:
+  - ✅ 提供示例代码和详细讲解
+  - ✅ 代码审查和优化建议
+  - ❌ 不直接修改用户的 Go 代码
+  - 📚 用户自己手动编写学习
+
+- **Frontend (React/TypeScript)**:
+  - ✅ 可以直接使用 `Edit`/`Write` 工具实现
+  - ✅ 快速完成前端功能，不占用学习时间
+  - 🎯 让用户专注于后端 Go 开发
+
+**目录分工**:
+```
+✋ 教学模式 (用户自己编写):
+  - cmd/server/
+  - api/
+  - handler/
+  - database/
+  - model/
+  - scripts/ (Go 测试脚本)
+
+✍️ 直接实现 (Claude 编写):
+  - frontend/
+  - docs/ (文档可以直接生成)
+```
 
 ### Teaching Approach 🎓
 - **Show examples**: 提供完整、可运行的代码示例
