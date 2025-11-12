@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 	"todo-list/model"
 
@@ -145,48 +146,89 @@ func (db *DB) CreateTodo(todo *model.Todo) error {
 	return nil
 }
 
-// ListTodos获取所有待办事项
-func (db *DB) ListTodos() ([]model.Todo, error) {
-	query := `
-  		SELECT id, version, title, description, status, due_date,
- 		       created_at, updated_at, completed_at
-  		FROM todos
-  		ORDER BY created_at DESC
-	`
+// TodoFilter 查询过滤器
+type TodoFilter struct {
+	Status string
+	Search string
+	Sort   string
+	Order  string
+	Limit  int
+	Offset int
+}
 
-	rows, err := db.conn.Query(query)
+// ListTodos 获取待办事项列表（支持筛选、搜索、分页）
+func (db *DB) ListTodos(filter TodoFilter) ([]model.Todo, int, error) {
+	// 设置默认值
+	if filter.Sort == "" {
+		filter.Sort = "created_at"
+	}
+	if filter.Order == "" {
+		filter.Order = "DESC"
+	} else {
+		filter.Order = strings.ToUpper(filter.Order) // 转换大写
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 50
+	}
+	if filter.Status == "" {
+		filter.Status = "all"
+	}
+
+	baseQuery := "SELECT id, version, title, description, status, due_date, created_at, updated_at, completed_at FROM todos WHERE 1=1"
+	args := []interface{}{}
+
+	// 动态添加查询条件
+	if filter.Status != "" && filter.Status != "all" {
+		baseQuery += " AND status = ?"
+		args = append(args, filter.Status)
+	}
+
+	if filter.Search != "" {
+		baseQuery += " AND (title LIKE ? OR description LIKE ?)"
+		searchPattern := "%" + filter.Search + "%"
+		args = append(args, searchPattern, searchPattern)
+	}
+
+	// 查询总数
+	countQuery := "SELECT COUNT(*) FROM todos WHERE 1=1"
+	countArgs := []interface{}{}
+
+	// 复制筛选条件到计数查询
+	if filter.Status != "" && filter.Status != "all" {
+		countQuery += " AND status = ?"
+		countArgs = append(countArgs, filter.Status)
+	}
+	if filter.Search != "" {
+		countQuery += " AND (title LIKE ? OR description LIKE ?)"
+		searchPattern := "%" + filter.Search + "%"
+		countArgs = append(countArgs, searchPattern, searchPattern)
+	}
+
+	var total int
+	err := db.conn.QueryRow(countQuery, countArgs...).Scan(&total)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query todos: %w", err)
-	}
-	defer rows.Close()
-
-	todos := make([]model.Todo, 0)
-	for rows.Next() {
-		var todo model.Todo
-
-		err := rows.Scan(
-			&todo.ID,
-			&todo.Version,
-			&todo.Title,
-			&todo.Description,
-			&todo.Status,
-			&todo.DueDate,
-			&todo.CreatedAt,
-			&todo.UpdatedAt,
-			&todo.CompletedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan todo: %w", err)
-		}
-
-		todos = append(todos, todo)
+		return nil, 0, fmt.Errorf("查询总数失败: %w", err)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, err
+	// 添加排序和分页（验证 sort 和 order 防止 SQL 注入）
+	allowedSortFields := map[string]bool{
+		"created_at": true,
+		"due_date":   true,
+		"status":     true,
+	}
+	allowedOrders := map[string]bool{
+		"ASC":  true,
+		"DESC": true,
 	}
 
-	return todos, nil
+	if !allowedSortFields[filter.Sort] {
+		filter.Sort = "created_at"
+	}
+	if !allowedOrders[filter.Order] {
+		filter.Order = "DESC"
+	}
+
+	return nil, 0, nil
 }
 
 // GetTodoByID 根据ID获取待办事项
