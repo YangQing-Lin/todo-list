@@ -139,6 +139,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 // TodoStats 统计信息
@@ -153,26 +154,31 @@ type TodoStats struct {
 
 // GetStats 获取待办事项统计信息
 func (db *DB) GetStats() (*TodoStats, error) {
+	// 在 Go 层获取当前时间（UTC）用于统计
+	now := time.Now().UTC()
+	today := now.Format("2006-01-02")
+	weekLater := now.AddDate(0, 0, 7).Format("2006-01-02")
+
 	query := `
 		SELECT
 			COUNT(*) as total,
 			SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
 			SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND due_date < datetime('now') THEN 1 ELSE 0 END) as overdue,
-			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND date(due_date) = date('now') THEN 1 ELSE 0 END) as today,
-			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND date(due_date) BETWEEN date('now') AND date('now', '+7 days') THEN 1 ELSE 0 END) as this_week
+			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND due_date < ? THEN 1 ELSE 0 END) as overdue,
+			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND date(due_date) = ? THEN 1 ELSE 0 END) as today,
+			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND date(due_date) BETWEEN ? AND ? THEN 1 ELSE 0 END) as this_week
 		FROM todos
 	`
 
 	var stats TodoStats
-	var pending, completed, overdue, today, thisWeek sql.NullInt64
+	var pending, completed, overdue, todayCount, thisWeek sql.NullInt64
 
-	err := db.conn.QueryRow(query).Scan(
+	err := db.conn.QueryRow(query, now, today, today, weekLater).Scan(
 		&stats.Total,
 		&pending,
 		&completed,
 		&overdue,
-		&today,
+		&todayCount,
 		&thisWeek,
 	)
 
@@ -190,8 +196,8 @@ func (db *DB) GetStats() (*TodoStats, error) {
 	if overdue.Valid {
 		stats.Overdue = int(overdue.Int64)
 	}
-	if today.Valid {
-		stats.Today = int(today.Int64)
+	if todayCount.Valid {
+		stats.Today = int(todayCount.Int64)
 	}
 	if thisWeek.Valid {
 		stats.ThisWeek = int(thisWeek.Int64)
@@ -282,22 +288,23 @@ func SetupRoutes(h *handler.Handler) *http.ServeMux {
 }
 ```
 
-**⚠️ 重要：路由注册顺序**
+**⚠️ 重要：路由注册顺序（最佳实践）**
 
 ```go
-// ✅ 正确顺序
+// ✅ 推荐顺序（更清晰）
 mux.HandleFunc("GET /api/v1/todos/stats", handler)  // 先注册具体路径
 mux.HandleFunc("GET /api/v1/todos/{id}", handler)   // 后注册通配路径
 
-// ❌ 错误顺序
-mux.HandleFunc("GET /api/v1/todos/{id}", handler)   // {id} 会匹配 "stats"
-mux.HandleFunc("GET /api/v1/todos/stats", handler)  // 永远不会被调用！
+// ⚠️ 也能工作，但不推荐
+mux.HandleFunc("GET /api/v1/todos/{id}", handler)   // 先注册通配
+mux.HandleFunc("GET /api/v1/todos/stats", handler)  // 仍然会被正确匹配
 ```
 
-**为什么？**
-- Go 1.22+ 路由器使用"最长前缀匹配"
-- `/todos/stats` 更具体，优先级更高
-- 但如果先注册 `{id}`，它会捕获所有 `/todos/*` 请求
+**为什么推荐具体路径优先？**
+- Go 1.22+ 路由器使用"最具体模式优先"匹配规则
+- `/todos/stats` 比 `/todos/{id}` 更具体，即使后注册也会优先匹配
+- **但为了代码可读性**，建议按"从具体到通用"的顺序注册路由
+- 避免未来维护时的困惑
 
 ---
 
