@@ -228,7 +228,51 @@ func (db *DB) ListTodos(filter TodoFilter) ([]model.Todo, int, error) {
 		filter.Order = "DESC"
 	}
 
-	return nil, 0, nil
+	// 这里 sort 和 order 已经验证过，可以安全拼接
+	baseQuery += fmt.Sprintf(" ORDER BY %s %s LIMIT ? OFFSET ?", filter.Sort, filter.Order)
+	args = append(args, filter.Limit, filter.Offset)
+
+	// 执行查询
+	rows, err := db.conn.Query(baseQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询失败: %w", err)
+	}
+	defer rows.Close()
+
+	var todos []model.Todo
+	for rows.Next() {
+		var todo model.Todo
+		var dueDate, completedAt sql.NullString
+
+		err := rows.Scan(
+			&todo.ID,
+			&todo.Version,
+			&todo.Title,
+			&todo.Description,
+			&todo.Status,
+			&dueDate,
+			&todo.CreatedAt,
+			&todo.UpdatedAt,
+			&completedAt,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("扫描失败: %w", err)
+		}
+
+		if dueDate.Valid {
+			t, _ := time.Parse(time.RFC3339, dueDate.String)
+			todo.DueDate = &t
+		}
+
+		if completedAt.Valid {
+			t, _ := time.Parse(time.RFC3339, dueDate.String)
+			todo.CompletedAt = &t
+		}
+
+		todos = append(todos, todo)
+	}
+
+	return todos, total, nil
 }
 
 // GetTodoByID 根据ID获取待办事项
