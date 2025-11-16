@@ -81,29 +81,60 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 
 // ListTodos 获取待办事项列表
 func (h *Handler) ListTodos(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	// 解析查询参数
+	status := r.URL.Query().Get("status")
+	search := r.URL.Query().Get("search")
+	sort := r.URL.Query().Get("sort")
+	order := r.URL.Query().Get("order")
 
-	if r.Method != http.MethodGet {
-		h.sendError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
-		return
+	// 解析分页参数
+	limit := 50
+	offset := 0
+
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+			// 限制最大值，防止恶意请求
+			if limit > 200 {
+				limit = 200
+			}
+		}
 	}
 
-	todos, err := h.db.ListTodos()
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+
+	// 构建过滤器
+	filter := database.TodoFilter{
+		Status: status,
+		Search: search,
+		Sort:   sort,
+		Order:  order,
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	// 调用数据库
+	todos, total, err := h.db.ListTodos(filter)
 	if err != nil {
-		log.Printf("Failed to list todos: %v", err)
-		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "获取待办事项失败")
+		h.sendError(w, http.StatusInternalServerError, "GET_DATA_ERROR", "获取待办事项失败")
 		return
 	}
 
+	// 返回结果（包含分页信息）
 	response := Response{
 		Success: true,
 		Data: map[string]interface{}{
-			"todos": todos,
-			"total": len(todos),
+			"todos":  todos,
+			"total":  total,
+			"limit":  limit,
+			"offset": offset,
 		},
 		Message: "获取待办事项成功",
 	}
-
 	h.sendJSON(w, http.StatusOK, response)
 }
 
