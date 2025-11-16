@@ -327,15 +327,6 @@ func (db *DB) ListTodos(filter TodoFilter) ([]model.Todo, int, error) {
 ### 文件 2: `handler/handler.go` - 修改 `ListTodos` handler
 
 ```go
-package handler
-
-import (
-	"net/http"
-	"strconv"
-
-	"todo-list/database"
-)
-
 func (h *Handler) ListTodos(w http.ResponseWriter, r *http.Request) {
 	// 解析查询参数
 	status := r.URL.Query().Get("status")
@@ -376,32 +367,43 @@ func (h *Handler) ListTodos(w http.ResponseWriter, r *http.Request) {
 	// 调用数据库层
 	todos, total, err := h.db.ListTodos(filter)
 	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "获取待办事项失败")
+		h.sendError(w, http.StatusInternalServerError, "GET_DATA_ERROR", "获取待办事项失败")
 		return
 	}
 
 	// 返回结果（包含分页信息）
-	sendSuccessResponse(w, map[string]interface{}{
-		"todos":  todos,
-		"total":  total,
-		"limit":  limit,
-		"offset": offset,
-	}, "获取待办事项成功")
+	response := Response{
+		Success: true,
+		Data: map[string]interface{}{
+			"todos":  todos,
+			"total":  total,
+			"limit":  limit,
+			"offset": offset,
+		},
+		Message: "获取待办事项成功",
+	}
+	h.sendJSON(w, http.StatusOK, response)
 }
 ```
 
 **关键点解析**：
 
-1. **参数解析**（第 12-15 行）
+1. **参数解析**（第 3-6 行）
    - 字符串参数直接读取（空字符串会被数据库层处理为默认值）
 
-2. **数字参数验证**（第 21-34 行）
+2. **数字参数验证**（第 8-26 行）
    - 使用 `strconv.Atoi` 转换
    - 验证范围（limit > 0, offset >= 0）
-   - 限制 limit 最大值（防止恶意请求）
+   - 限制 limit 最大值为 200（防止恶意请求）
 
-3. **返回格式**（第 55-60 行）
-   - 包含分页元信息（total, limit, offset）
+3. **错误处理**（第 40-42 行）
+   - 使用 `h.sendError(w, statusCode, errorCode, errorMessage)`
+   - 遵循当前项目的错误响应格式（包含 error code）
+
+4. **成功响应格式**（第 45-56 行）
+   - 手动构造 `Response` 结构体（Success, Data, Message）
+   - 调用 `h.sendJSON(w, statusCode, response)` 发送 JSON
+   - Data 字段包含分页元信息（todos, total, limit, offset）
    - 前端可以根据这些信息渲染分页组件
 
 ---
