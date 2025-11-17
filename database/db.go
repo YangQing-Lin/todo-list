@@ -265,7 +265,7 @@ func (db *DB) ListTodos(filter TodoFilter) ([]model.Todo, int, error) {
 		}
 
 		if completedAt.Valid {
-			t, _ := time.Parse(time.RFC3339, dueDate.String)
+			t, _ := time.Parse(time.RFC3339, completedAt.String)
 			todo.CompletedAt = &t
 		}
 
