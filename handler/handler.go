@@ -21,6 +21,21 @@ type Response struct {
 	Message string      `json:"message,omitempty"`
 }
 
+// CreateTodoRequest 创建待办事项请求体
+type CreateTodoRequest struct {
+	Title       string `json:"title" example:"Buy groceries"`
+	Description string `json:"description" example:"Milk, bread, and fruits"`
+}
+
+// UpdateTodoRequest 更新待办事项请求体
+type UpdateTodoRequest struct {
+	Version     *int       `json:"version,omitempty" example:"2"`
+	Title       *string    `json:"title,omitempty" example:"Update weekly report"`
+	Description *string    `json:"description,omitempty" example:"Finish and send by EOD"`
+	Status      *string    `json:"status,omitempty" example:"DONE"`
+	DueDate     *time.Time `json:"due_date,omitempty" example:"2024-05-30T16:00:00Z"`
+}
+
 // ErrorInfo 错误信息
 type ErrorInfo struct {
 	Code    string `json:"code"`
@@ -67,6 +82,12 @@ func (h *Handler) sendError(w http.ResponseWriter, status int, code, message str
 }
 
 // HealthCheck 健康检查
+// @Summary 健康检查
+// @Description 返回应用当前健康状态
+// @Tags health
+// @Produce json
+// @Success 200 {object} handler.Response
+// @Router /health [get]
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	response := Response{
 		Success: true,
@@ -80,6 +101,19 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListTodos 获取待办事项列表
+// @Summary 获取待办事项列表
+// @Description 支持筛选、搜索、排序和分页的待办事项列表
+// @Tags todos
+// @Param status query string false "状态过滤"
+// @Param search query string false "搜索关键字"
+// @Param sort query string false "排序字段"
+// @Param order query string false "排序方式" Enums(asc,desc)
+// @Param limit query int false "返回条数" default(50)
+// @Param offset query int false "偏移量" default(0)
+// @Produce json
+// @Success 200 {object} handler.Response
+// @Failure 500 {object} handler.Response
+// @Router /todos [get]
 func (h *Handler) ListTodos(w http.ResponseWriter, r *http.Request) {
 	// 解析查询参数
 	status := r.URL.Query().Get("status")
@@ -139,6 +173,16 @@ func (h *Handler) ListTodos(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateTodo 创建新的待办事项
+// @Summary 创建待办事项
+// @Description 创建一个新的待办事项
+// @Tags todos
+// @Accept json
+// @Produce json
+// @Param todo body handler.CreateTodoRequest true "待办事项内容"
+// @Success 201 {object} handler.Response
+// @Failure 400 {object} handler.Response
+// @Failure 500 {object} handler.Response
+// @Router /todos [post]
 func (h *Handler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
@@ -150,10 +194,7 @@ func (h *Handler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 限制1MB
 
 	// 解析请求体
-	var req struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-	}
+	var req CreateTodoRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.sendError(w, http.StatusBadRequest, "INVALID_JSON", fmt.Sprintf("JSON解析失败: %v", err))
@@ -185,6 +226,19 @@ func (h *Handler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateTodo 更新待办事项
+// @Summary 更新待办事项
+// @Description 根据 ID 更新待办事项信息
+// @Tags todos
+// @Accept json
+// @Produce json
+// @Param id path int true "待办事项ID"
+// @Param todo body handler.UpdateTodoRequest true "待办事项更新内容"
+// @Success 200 {object} handler.Response
+// @Failure 400 {object} handler.Response
+// @Failure 404 {object} handler.Response
+// @Failure 409 {object} handler.Response
+// @Failure 500 {object} handler.Response
+// @Router /todos/{id} [put]
 func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
@@ -210,13 +264,7 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		Version     *int       `json:"version"`
-		Title       *string    `json:"title"`
-		Description *string    `json:"description"`
-		Status      *string    `json:"status"`
-		DueDate     *time.Time `json:"due_date"`
-	}
+	var req UpdateTodoRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.sendError(w, http.StatusBadRequest, "INVALID_JSON", fmt.Sprintf("Invalid JSON format: %v", err))
@@ -277,6 +325,15 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteTodo 删除待办事项
+// @Summary 删除待办事项
+// @Description 根据 ID 删除待办事项
+// @Tags todos
+// @Produce json
+// @Param id path int true "待办事项ID"
+// @Success 200 {object} handler.Response
+// @Failure 400 {object} handler.Response
+// @Failure 500 {object} handler.Response
+// @Router /todos/{id} [delete]
 func (h *Handler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 

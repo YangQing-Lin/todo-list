@@ -1,0 +1,214 @@
+basePath: /api/v1
+definitions:
+  handler.CreateTodoRequest:
+    properties:
+      description:
+        example: Milk, bread, and fruits
+        type: string
+      title:
+        example: Buy groceries
+        type: string
+    type: object
+  handler.ErrorInfo:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+    type: object
+  handler.Response:
+    properties:
+      data: {}
+      error:
+        $ref: '#/definitions/handler.ErrorInfo'
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  handler.UpdateTodoRequest:
+    properties:
+      description:
+        example: Finish and send by EOD
+        type: string
+      due_date:
+        example: "2024-05-30T16:00:00Z"
+        type: string
+      status:
+        example: DONE
+        type: string
+      title:
+        example: Update weekly report
+        type: string
+      version:
+        example: 2
+        type: integer
+    type: object
+host: localhost:7789
+info:
+  contact: {}
+  description: Todo List RESTful API
+  title: Todo List API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      description: 返回应用当前健康状态
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 健康检查
+      tags:
+      - health
+  /todos:
+    get:
+      description: 支持筛选、搜索、排序和分页的待办事项列表
+      parameters:
+      - description: 状态过滤
+        in: query
+        name: status
+        type: string
+      - description: 搜索关键字
+        in: query
+        name: search
+        type: string
+      - description: 排序字段
+        in: query
+        name: sort
+        type: string
+      - description: 排序方式
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      - default: 50
+        description: 返回条数
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 获取待办事项列表
+      tags:
+      - todos
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的待办事项
+      parameters:
+      - description: 待办事项内容
+        in: body
+        name: todo
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateTodoRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 创建待办事项
+      tags:
+      - todos
+  /todos/{id}:
+    delete:
+      description: 根据 ID 删除待办事项
+      parameters:
+      - description: 待办事项ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 删除待办事项
+      tags:
+      - todos
+    put:
+      consumes:
+      - application/json
+      description: 根据 ID 更新待办事项信息
+      parameters:
+      - description: 待办事项ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 待办事项更新内容
+        in: body
+        name: todo
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateTodoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handler.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.Response'
+      summary: 更新待办事项
+      tags:
+      - todos
+schemes:
+- http
+swagger: "2.0"

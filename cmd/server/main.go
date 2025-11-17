@@ -1,3 +1,9 @@
+// @title Todo List API
+// @version 1.0
+// @description Todo List RESTful API
+// @host localhost:7789
+// @BasePath /api/v1
+// @schemes http
 package main
 
 import (
@@ -8,8 +14,12 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	httpSwagger "github.com/swaggo/http-swagger"
+
 	"todo-list/api"
 	"todo-list/database"
+	_ "todo-list/docs"
 	"todo-list/handler"
 )
 
@@ -26,6 +36,7 @@ func main() {
 
 	// 设置路由
 	mux := api.SetupRoutes(h)
+	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 
 	// 启动服务器
 	server := &http.Server{
