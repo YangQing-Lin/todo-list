@@ -59,6 +59,9 @@ func SetupRoutes(h *handler.Handler) *http.ServeMux {
 		mux.HandleFunc("GET "+base, withMiddlewares(h.ListTodos))
 		mux.HandleFunc("POST "+base, withMiddlewares(h.CreateTodo))
 		mux.HandleFunc("OPTIONS "+base, withMiddlewares(optionsHandler))
+
+		mux.HandleFunc("GET "+base+"/stats", withMiddlewares(h.GetStats))
+
 		mux.HandleFunc("PUT "+base+"/{id}", withMiddlewares(h.UpdateTodo))
 		mux.HandleFunc("DELETE "+base+"/{id}", withMiddlewares(h.DeleteTodo))
 		mux.HandleFunc("OPTIONS "+base+"/{id}", withMiddlewares(optionsHandler))
