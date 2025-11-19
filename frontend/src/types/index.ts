@@ -29,3 +29,12 @@ export interface TodoListResponse {
   todos: Todo[];
   total: number;
 }
+
+export interface TodoStats {
+  total: number;
+  pending: number;
+  completed: number;
+  overdue: number;
+  today: number;
+  this_week: number;
+}

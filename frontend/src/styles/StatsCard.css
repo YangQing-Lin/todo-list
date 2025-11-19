@@ -1,0 +1,150 @@
+.stats-container {
+  margin-bottom: 0;
+}
+
+.stats-loading {
+  padding: 40px 20px;
+  text-align: center;
+  background: var(--warning-color);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow);
+  font-weight: 900;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stat-card {
+  padding: 20px;
+  border: 5px solid var(--border-color);
+  box-shadow: 6px 6px 0 var(--border-color);
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+.stat-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 var(--border-color);
+}
+
+.stat-value {
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--text-color);
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-color);
+  text-align: right;
+}
+
+/* Color variants */
+.stat-card-primary {
+  background: var(--primary-color);
+}
+
+.stat-card-warning {
+  background: var(--warning-color);
+}
+
+.stat-card-success {
+  background: var(--success-color);
+}
+
+.stat-card-danger {
+  background: var(--danger-color);
+}
+
+.stat-card-danger .stat-value,
+.stat-card-danger .stat-label {
+  color: #FFF;
+}
+
+.stat-card-info {
+  background: #B4A7FF;
+}
+
+.stat-card-accent {
+  background: #FFB3E6;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .stats-container {
+    margin-bottom: 24px;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .stat-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .stat-value {
+    font-size: 36px;
+    margin-bottom: 8px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+
+  .stat-value {
+    font-size: 32px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 14px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+  }
+}

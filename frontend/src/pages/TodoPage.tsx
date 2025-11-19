@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Todo } from '../types';
+import { Todo, TodoStats } from '../types';
 import { todoApi, extractErrorMessage } from '../services/api';
 import TodoItem from '../components/TodoItem';
 import TodoForm from '../components/TodoForm';
+import StatsCard from '../components/StatsCard';
 import '../styles/TodoPage.css';
 
 const TodoPage: React.FC = () => {
@@ -10,6 +11,8 @@ const TodoPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [stats, setStats] = useState<TodoStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   // 获取Todos
   const fetchTodos = async () => {
@@ -28,9 +31,27 @@ const TodoPage: React.FC = () => {
     }
   };
 
+  // 获取统计信息
+  const fetchStats = async () => {
+    setStatsLoading(true);
+    try {
+      const response = await todoApi.getStats();
+      if (response.success) {
+        setStats(response.data);
+      } else {
+        console.error('获取统计信息失败:', response.error?.message);
+      }
+    } catch (err: any) {
+      console.error('获取统计信息失败:', extractErrorMessage(err, '获取统计信息失败'));
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
   // 初始化加载
   useEffect(() => {
     fetchTodos();
+    fetchStats();
   }, []);
 
   // 处理删除
@@ -43,6 +64,7 @@ const TodoPage: React.FC = () => {
       const response = await todoApi.deleteTodo(id);
       if (response.success) {
         setTodos(todos.filter(todo => todo.id !== id));
+        fetchStats(); // 刷新统计信息
       } else {
         setError(response.error?.message || '删除失败');
       }
@@ -72,6 +94,7 @@ const TodoPage: React.FC = () => {
           return t;
         });
         setTodos(updatedTodos);
+        fetchStats(); // 刷新统计信息
       } else {
         setError(response.error?.message || '更新失败');
       }
@@ -92,8 +115,8 @@ const TodoPage: React.FC = () => {
     return true;
   });
 
-  // 统计数据
-  const stats = {
+  // 本地统计数据（用于过滤按钮）
+  const localStats = {
     total: todos.length,
     pending: todos.filter(t => t.status === 'pending').length,
     completed: todos.filter(t => t.status === 'completed').length,
@@ -108,35 +131,36 @@ const TodoPage: React.FC = () => {
       <div className="container">
         <header className="page-header">
           <h1>我的待办事项</h1>
-          <div className="stats">
-            <span>总计: {stats.total}</span>
-            <span>待办: {stats.pending}</span>
-            <span>已完成: {stats.completed}</span>
-          </div>
         </header>
 
         {error && <div className="error">{error}</div>}
 
-        <TodoForm onTodoCreated={fetchTodos} />
+        <div className="page-layout">
+          <aside className="sidebar">
+            <StatsCard stats={stats} loading={statsLoading} />
+          </aside>
 
-        <div className="todo-filters">
+          <main className="main-content">
+            <TodoForm onTodoCreated={() => { fetchTodos(); fetchStats(); }} />
+
+            <div className="todo-filters">
           <button
             className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
             onClick={() => setFilter('all')}
           >
-            全部 ({stats.total})
+            全部 ({localStats.total})
           </button>
           <button
             className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
             onClick={() => setFilter('pending')}
           >
-            待办 ({stats.pending})
+            待办 ({localStats.pending})
           </button>
           <button
             className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
             onClick={() => setFilter('completed')}
           >
-            已完成 ({stats.completed})
+            已完成 ({localStats.completed})
           </button>
         </div>
 
@@ -162,6 +186,8 @@ const TodoPage: React.FC = () => {
               />
             ))
           )}
+        </div>
+          </main>
         </div>
       </div>
     </div>

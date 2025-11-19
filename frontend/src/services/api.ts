@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Todo, ApiResponse, CreateTodoRequest, TodoListResponse } from '../types';
+import { Todo, ApiResponse, CreateTodoRequest, TodoListResponse, TodoStats } from '../types';
 
 // 创建axios实例
 const api = axios.create({
@@ -45,6 +45,11 @@ export const todoApi = {
   // 删除Todo（预留）
   deleteTodo: (id: number): Promise<ApiResponse<null>> => {
     return api.delete(`/todos/${id}`);
+  },
+
+  // 获取统计信息
+  getStats: (): Promise<ApiResponse<TodoStats>> => {
+    return api.get('/todos/stats');
   },
 };
 
