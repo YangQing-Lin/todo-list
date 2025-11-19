@@ -150,3 +150,4 @@ go run scripts/frontend-test/main.go
 ---
 
 **Code Philosophy**: _"Talk is cheap. Show me the code."_ - Linus Torvalds
+- 前端页面使用 Neo-Brutalism(https://www.neobrutalism.dev/) 风格
