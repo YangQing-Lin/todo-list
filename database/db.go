@@ -369,3 +369,67 @@ func (db *DB) DeleteTodo(id int) error {
 
 	return nil
 }
+
+// TodoStats 统计信息
+type TodoStats struct {
+	Total     int `json:"total"`     // 总数量
+	Pending   int `json:"pending"`   // 未完成
+	Completed int `json:"completed"` // 已完成
+	Overdue   int `json:"overdue"`   // 已逾期
+	Today     int `json:"today"`     // 今天到期
+	ThisWeek  int `json:"this_week"` // 本周到期
+}
+
+// GetStats 获取待办事项统计信息
+func (db *DB) GetStats() (*TodoStats, error) {
+	// 获取 UTC 时间
+	now := time.Now().UTC()
+	today := now.Format("2006-01-02")
+	weekLater := now.AddDate(0, 0, 7).Format("2006-01-02")
+
+	query := `
+		SELECT
+			COUNT(*) as total,
+			SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+			SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND due_date < ? THEN 1 ELSE 0 END) as overdue,
+			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND date(due_date) = ? THEN 1 ELSE 0 END) as today,
+			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND date(due_date) BETWEEN ? AND ? THEN 1 ELSE 0 END) as this_week
+		FROM todos
+	`
+
+	var stats TodoStats
+	var pending, completed, overdue, todayCount, thisWeek sql.NullInt64
+
+	err := db.conn.QueryRow(query, now, today, today, weekLater).Scan(
+		&stats.Total,
+		&pending,
+		&completed,
+		&overdue,
+		&todayCount,
+		&thisWeek,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("查询统计信息失败: %w", err)
+	}
+
+	// 处理 NULL 值（空表时 SUM 返回 NULL）
+	if pending.Valid {
+		stats.Pending = int(pending.Int64)
+	}
+	if completed.Valid {
+		stats.Completed = int(completed.Int64)
+	}
+	if overdue.Valid {
+		stats.Overdue = int(overdue.Int64)
+	}
+	if todayCount.Valid {
+		stats.Today = int(todayCount.Int64)
+	}
+	if thisWeek.Valid {
+		stats.ThisWeek = int(thisWeek.Int64)
+	}
+
+	return &stats, nil
+}
