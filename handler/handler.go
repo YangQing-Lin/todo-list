@@ -372,3 +372,20 @@ func (h *Handler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 
 	h.sendJSON(w, http.StatusOK, response)
 }
+
+// GetStats 获取统计信息
+func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.db.GetStats()
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, "GET_STATS_ERROR", "获取统计信息失败")
+		return
+	}
+
+	response := Response{
+		Success: true,
+		Data:    stats,
+		Message: "获取统计信息成功",
+	}
+
+	h.sendJSON(w, http.StatusOK, response)
+}
