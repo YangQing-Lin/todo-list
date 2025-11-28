@@ -16,7 +16,11 @@
   --shadow: 6px 6px 0 #000;
   --shadow-hover: 8px 8px 0 #000;
   --border-radius: 0;
-  --transition: all 0.15s ease;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-back: cubic-bezier(0.18, 1.4, 0.2, 1);
+  --ease-snap: cubic-bezier(0.37, 1.04, 0.68, 1);
+  --transition: transform 240ms var(--ease-out), box-shadow 240ms var(--ease-out), background-color 200ms ease, color 200ms ease, opacity 220ms ease;
+  --transition-fast: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
 }
 
 * {

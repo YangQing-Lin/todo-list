@@ -6,9 +6,10 @@ interface TodoItemProps {
   todo: Todo;
   onToggle: (id: number) => void;
   onDelete: (id: number) => void;
+  isLeaving?: boolean;
 }
 
-const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete }) => {
+const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, isLeaving = false }) => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('zh-CN', {
       year: 'numeric',
@@ -22,7 +23,7 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete }) => {
   const isCompleted = todo.status === 'completed';
 
   return (
-    <div className={`todo-item ${isCompleted ? 'completed' : ''}`}>
+    <div className={`todo-item ${isCompleted ? 'completed' : ''} ${isLeaving ? 'is-leaving' : ''}`}>
       <div className="todo-content">
         <div className="todo-left">
           <input

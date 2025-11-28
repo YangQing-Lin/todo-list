@@ -3,8 +3,10 @@
   border: 4px solid var(--border-color);
   box-shadow: 4px 4px 0 var(--border-color);
   margin-bottom: 16px;
-  transition: var(--transition);
+  transition: var(--transition), filter 220ms ease;
   position: relative;
+  transform-origin: top left;
+  animation: todo-pop 520ms var(--ease-back);
 }
 
 .todo-item:nth-child(3n+1) {
@@ -20,13 +22,20 @@
 }
 
 .todo-item:hover {
-  box-shadow: 6px 6px 0 var(--border-color);
-  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 var(--border-color);
+  transform: translate(-3px, -3px);
 }
 
 .todo-item.completed {
-  opacity: 0.6;
-  background: #F5F5F5 !important;
+  opacity: 0.82;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e9e9e9 100%) !important;
+  filter: saturate(0.75);
+  animation: todo-complete 380ms var(--ease-back);
+}
+
+.todo-item.is-leaving {
+  animation: todo-leave 260ms var(--ease-snap) forwards;
+  pointer-events: none;
 }
 
 .todo-content {
@@ -53,11 +62,20 @@
   border: 4px solid var(--border-color);
   background: var(--card-background);
   position: relative;
-  transition: var(--transition);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background-color 200ms ease, border-color 220ms ease;
+  box-shadow: 3px 3px 0 var(--border-color);
+  will-change: transform, box-shadow;
+}
+
+.todo-checkbox:hover {
+  transform: translate(-2px, -2px) scale(1.02);
+  box-shadow: 5px 5px 0 var(--border-color);
 }
 
 .todo-checkbox:checked {
   background: var(--text-color);
+  transform: translate(-2px, -2px) scale(1.05);
+  box-shadow: 7px 7px 0 var(--border-color);
 }
 
 .todo-checkbox:checked::after {
@@ -69,6 +87,7 @@
   color: var(--card-background);
   font-size: 20px;
   font-weight: 900;
+  animation: checkmark 280ms var(--ease-out);
 }
 
 .todo-text {
@@ -80,14 +99,37 @@
   font-weight: 900;
   margin-bottom: 8px;
   color: var(--text-color);
-  transition: var(--transition);
+  position: relative;
+  transition: color 200ms ease, opacity 240ms ease, transform var(--transition-fast);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
+.todo-title::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  bottom: -4px;
+  width: calc(100% + 4px);
+  height: 6px;
+  background: var(--warning-color);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 260ms var(--ease-out), background-color 180ms ease;
+}
+
 .todo-item.completed .todo-title {
-  text-decoration: line-through;
-  opacity: 0.5;
+  text-decoration: none;
+  opacity: 0.72;
+}
+
+.todo-item.completed .todo-title::after {
+  transform: scaleX(1);
+  background: var(--success-color);
+}
+
+.todo-item.completed .todo-checkbox {
+  border-color: var(--text-color);
 }
 
 .todo-description {
@@ -119,9 +161,71 @@
   gap: 8px;
 }
 
+.todo-actions .btn {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background-color 200ms ease, color 200ms ease;
+}
+
 .btn-sm {
   padding: 10px 20px;
   font-size: 14px;
+}
+
+.btn-sm:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--border-color);
+}
+
+@keyframes todo-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97) rotate(-0.4deg);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.03) rotate(0.6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes todo-leave {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+}
+
+@keyframes todo-complete {
+  0% {
+    box-shadow: 4px 4px 0 var(--border-color);
+  }
+  60% {
+    box-shadow: 11px 11px 0 var(--border-color);
+  }
+  100% {
+    box-shadow: 6px 6px 0 var(--border-color);
+  }
+}
+
+@keyframes checkmark {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: translate(-50%, -52%) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
 }
 
 @media (max-width: 768px) {

@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Todo, TodoStats } from '../types';
 import { todoApi, extractErrorMessage } from '../services/api';
 import TodoItem from '../components/TodoItem';
 import TodoForm from '../components/TodoForm';
 import StatsCard from '../components/StatsCard';
 import '../styles/TodoPage.css';
+
+const LEAVE_ANIMATION_MS = 260;
 
 const TodoPage: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -13,6 +15,17 @@ const TodoPage: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [stats, setStats] = useState<TodoStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [leavingIds, setLeavingIds] = useState<Set<number>>(new Set());
+  const leaveTimersRef = useRef<Map<number, number>>(new Map());
+
+  // 清理定时器
+  useEffect(() => {
+    const timers = leaveTimersRef.current;
+    return () => {
+      timers.forEach(timerId => clearTimeout(timerId));
+      timers.clear();
+    };
+  }, []);
 
   // 获取Todos
   const fetchTodos = async () => {
@@ -63,8 +76,24 @@ const TodoPage: React.FC = () => {
     try {
       const response = await todoApi.deleteTodo(id);
       if (response.success) {
-        setTodos(todos.filter(todo => todo.id !== id));
-        fetchStats(); // 刷新统计信息
+        setLeavingIds(prev => {
+          const updated = new Set(prev);
+          updated.add(id);
+          return updated;
+        });
+
+        const timerId = window.setTimeout(() => {
+          setTodos(prev => prev.filter(todo => todo.id !== id));
+          setLeavingIds(prev => {
+            const updated = new Set(prev);
+            updated.delete(id);
+            return updated;
+          });
+          leaveTimersRef.current.delete(id);
+          fetchStats(); // 动画结束后刷新统计信息
+        }, LEAVE_ANIMATION_MS);
+
+        leaveTimersRef.current.set(id, timerId);
       } else {
         setError(response.error?.message || '删除失败');
       }
@@ -144,49 +173,50 @@ const TodoPage: React.FC = () => {
             <TodoForm onTodoCreated={() => { fetchTodos(); fetchStats(); }} />
 
             <div className="todo-filters">
-          <button
-            className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-            onClick={() => setFilter('all')}
-          >
-            全部 ({localStats.total})
-          </button>
-          <button
-            className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
-            onClick={() => setFilter('pending')}
-          >
-            待办 ({localStats.pending})
-          </button>
-          <button
-            className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
-            onClick={() => setFilter('completed')}
-          >
-            已完成 ({localStats.completed})
-          </button>
-        </div>
-
-        <div className="todo-list">
-          {filteredTodos.length === 0 ? (
-            <div className="empty-state">
-              <h3>
-                {filter === 'completed' ? '还没有完成的任务' :
-                 filter === 'pending' ? '没有待办任务了！' :
-                 '还没有待办事项'}
-              </h3>
-              <p>
-                {filter === 'all' && '添加你的第一个待办事项吧！'}
-              </p>
+              <button
+                className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+                onClick={() => setFilter('all')}
+              >
+                全部 ({localStats.total})
+              </button>
+              <button
+                className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
+                onClick={() => setFilter('pending')}
+              >
+                待办 ({localStats.pending})
+              </button>
+              <button
+                className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
+                onClick={() => setFilter('completed')}
+              >
+                已完成 ({localStats.completed})
+              </button>
             </div>
-          ) : (
-            filteredTodos.map(todo => (
-              <TodoItem
-                key={todo.id}
-                todo={todo}
-                onToggle={handleToggle}
-                onDelete={handleDelete}
-              />
-            ))
-          )}
-        </div>
+
+            <div className="todo-list">
+              {filteredTodos.length === 0 ? (
+                <div className="empty-state">
+                  <h3>
+                    {filter === 'completed' ? '还没有完成的任务' :
+                     filter === 'pending' ? '没有待办任务了！' :
+                     '还没有待办事项'}
+                  </h3>
+                  <p>
+                    {filter === 'all' && '添加你的第一个待办事项吧！'}
+                  </p>
+                </div>
+              ) : (
+                filteredTodos.map(todo => (
+                  <TodoItem
+                    key={todo.id}
+                    todo={todo}
+                    onToggle={handleToggle}
+                    onDelete={handleDelete}
+                    isLeaving={leavingIds.has(todo.id)}
+                  />
+                ))
+              )}
+            </div>
           </main>
         </div>
       </div>
