@@ -258,7 +258,7 @@ func (h *Handler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, http.StatusCreated, response)
 }
 
-// UpdateTodo 更新待办事项
+// UpdateTodo 更新待办事项(带超时控制)
 // @Summary 更新待办事项
 // @Description 根据 ID 更新待办事项信息
 // @Tags todos
@@ -273,6 +273,9 @@ func (h *Handler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} handler.Response
 // @Router /todos/{id} [put]
 func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), UpdateTimeout)
+	defer cancel()
+
 	defer r.Body.Close()
 
 	if r.Method != http.MethodPut {
@@ -309,48 +312,60 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	todo, err := h.db.GetTodoByID(id)
+	existingTodo, err := h.db.GetTodoByID(id)
 	if err != nil {
 		log.Printf("failed to get todo: %v", err)
 		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "获取待办事项失败")
 		return
 	}
-	if todo == nil {
+	if existingTodo == nil {
 		h.sendError(w, http.StatusNotFound, "NOT_FOUND", "待办事项不存在")
 		return
 	}
 
 	// 更新字段
 	if req.Title != nil {
-		todo.Title = *req.Title
+		existingTodo.Title = *req.Title
 	}
 	if req.Description != nil {
-		todo.Description = *req.Description
+		existingTodo.Description = *req.Description
 	}
 	if req.Status != nil {
-		todo.Status = *req.Status
+		existingTodo.Status = *req.Status
+		if *req.Status == "completed" {
+			now := time.Now()
+			existingTodo.CompletedAt = &now
+		} else if *req.Status == "pending" {
+			existingTodo.CompletedAt = nil
+		}
 	}
 	if req.DueDate != nil {
-		todo.SetDueDate(*req.DueDate)
+		existingTodo.SetDueDate(*req.DueDate)
 	}
 
+	// 处理乐观锁
 	if req.Version != nil {
-		todo.Version = *req.Version
+		existingTodo.Version = *req.Version
 	}
 
-	if err := h.db.UpdateTodo(todo); err != nil {
-		log.Printf("Failed to update todo: %v", err)
-		if errors.Is(err, database.ErrVersionConflict) {
-			h.sendError(w, http.StatusConflict, "VERSION_CONFLICT", "待办事项已被其他请求更新，请刷新后重试")
+	if err := h.db.UpdateTodoContext(ctx, existingTodo); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("UpdateTodo timeout: %v", err)
+			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "更新超时，请稍后重试")
 			return
 		}
-		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "更新待办事项失败")
+		if errors.Is(err, database.ErrVersionConflict) {
+			h.sendError(w, http.StatusConflict, "VERSION_CONFLICT", "版本冲突，请刷新后重试")
+			return
+		}
+		log.Printf("Failed to update todo: %v", err)
+		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "更新失败")
 		return
 	}
 
 	response := Response{
 		Success: true,
-		Data:    todo,
+		Data:    existingTodo,
 		Message: "更新待办事项成功",
 	}
 
