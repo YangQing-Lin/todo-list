@@ -647,3 +647,77 @@ func (db *DB) UpdateTodoContext(ctx context.Context, todo *model.Todo) error {
 
 	return nil
 }
+
+// DeleteTodoContext 删除待办事项(支持 Context)
+func (db *DB) DeleteTodoContext(ctx context.Context, id int) error {
+	query := `DELETE FROM todos WHERE id = ?`
+
+	result, err := db.conn.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete todo: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("todo not found")
+	}
+
+	return nil
+}
+
+// GetStatsContext 获取统计信息(支持 Context)
+func (db *DB) GetStatsContext(ctx context.Context) (*TodoStats, error) {
+	now := time.Now().UTC()
+	today := now.Format("2006-01-02")
+	weekLater := now.AddDate(0, 0, 7).Format("2006-0102")
+
+	query := `
+		SELECT
+			COUNT(*) as total,
+			SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+			SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND due_date < ? THEN 1 ELSE 0 END) as overdue,
+			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND date(due_date) = ? THEN 1 ELSE 0 END) as today,
+			SUM(CASE WHEN status = 'pending' AND due_date IS NOT NULL AND date(due_date) BETWEEN ? AND ? THEN 1 ELSE 0 END) as this_week
+		FROM todos
+	`
+
+	var stats TodoStats
+	var pending, completed, overdue, todayCount, thisWeek sql.NullInt64
+
+	err := db.conn.QueryRowContext(ctx, query, now, today, today, weekLater).Scan(
+		&stats.Total,
+		&pending,
+		&completed,
+		&overdue,
+		&todayCount,
+		&thisWeek,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("查询统计信息失败：%w", err)
+	}
+
+	// 处理 NULL 值
+	if pending.Valid {
+		stats.Pending = int(pending.Int64)
+	}
+	if completed.Valid {
+		stats.Completed = int(completed.Int64)
+	}
+	if overdue.Valid {
+		stats.Overdue = int(overdue.Int64)
+	}
+	if todayCount.Valid {
+		stats.Today = int(todayCount.Int64)
+	}
+	if thisWeek.Valid {
+		stats.ThisWeek = int(thisWeek.Int64)
+	}
+
+	return &stats, nil
+}
