@@ -244,6 +244,11 @@ func (h *Handler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "创建超时，请稍后重试")
 			return
 		}
+		if errors.Is(err, context.Canceled) {
+			log.Printf("ListTodos canceled: %v", err)
+			// 客户端取消请求,不需要响应
+			return
+		}
 		log.Printf("Failed to create todo: %v", err)
 		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "创建失败")
 		return
@@ -332,10 +337,11 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Status != nil {
 		existingTodo.Status = *req.Status
-		if *req.Status == "completed" {
+		switch *req.Status {
+		case "completed":
 			now := time.Now()
 			existingTodo.CompletedAt = &now
-		} else if *req.Status == "pending" {
+		case "pending":
 			existingTodo.CompletedAt = nil
 		}
 	}
@@ -358,6 +364,11 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 			h.sendError(w, http.StatusConflict, "VERSION_CONFLICT", "版本冲突，请刷新后重试")
 			return
 		}
+		if errors.Is(err, context.Canceled) {
+			log.Printf("ListTodos canceled: %v", err)
+			// 客户端取消请求,不需要响应
+			return
+		}
 		log.Printf("Failed to update todo: %v", err)
 		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "更新失败")
 		return
@@ -372,7 +383,7 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, http.StatusOK, response)
 }
 
-// DeleteTodo 删除待办事项
+// DeleteTodo 删除待办事项(带超时控制)
 // @Summary 删除待办事项
 // @Description 根据 ID 删除待办事项
 // @Tags todos
@@ -383,6 +394,9 @@ func (h *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} handler.Response
 // @Router /todos/{id} [delete]
 func (h *Handler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), DeleteTimeout)
+	defer cancel()
+
 	defer r.Body.Close()
 
 	if r.Method != http.MethodDelete {
@@ -391,11 +405,6 @@ func (h *Handler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	idStr := r.PathValue("id")
-	if idStr == "" {
-		h.sendError(w, http.StatusBadRequest, "INVALID_ID", "无效的ID")
-		return
-	}
-
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, "INVALID_ID", fmt.Sprintf("无效的Id格式: %v", err))
@@ -407,9 +416,19 @@ func (h *Handler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.db.DeleteTodo(id); err != nil {
+	if err := h.db.DeleteTodoContext(ctx, id); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("DeleteTodo timeout: %v", err)
+			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "删除超时，请稍后重试")
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			log.Printf("ListTodos canceled: %v", err)
+			// 客户端取消请求,不需要响应
+			return
+		}
 		log.Printf("Failed to delete todo: %v", err)
-		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "删除待办事项失败")
+		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "删除失败")
 		return
 	}
 
@@ -421,11 +440,25 @@ func (h *Handler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, http.StatusOK, response)
 }
 
-// GetStats 获取统计信息
+// GetStats 获取统计信息(带超时控制)
 func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
-	stats, err := h.db.GetStats()
+	ctx, cancel := context.WithTimeout(r.Context(), StatsTimeout)
+	defer cancel()
+
+	stats, err := h.db.GetStatsContext(ctx)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, "GET_STATS_ERROR", "获取统计信息失败")
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("GetStats timeout: %v", err)
+			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "统计查询超时，请稍后重试")
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			log.Printf("ListTodos canceled: %v", err)
+			// 客户端取消请求,不需要响应
+			return
+		}
+		log.Printf("Failed to get stats: %v", err)
+		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "获取统计信息失败")
 		return
 	}
 
