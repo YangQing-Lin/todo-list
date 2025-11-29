@@ -4,19 +4,27 @@ import { todoApi, extractErrorMessage } from '../services/api';
 import TodoItem from '../components/TodoItem';
 import TodoForm from '../components/TodoForm';
 import StatsCard from '../components/StatsCard';
+import ConfirmDialog from '../components/ConfirmDialog';
 import '../styles/TodoPage.css';
 
 const LEAVE_ANIMATION_MS = 260;
 
 const TodoPage: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [stats, setStats] = useState<TodoStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [leavingIds, setLeavingIds] = useState<Set<number>>(new Set());
   const leaveTimersRef = useRef<Map<number, number>>(new Map());
+
+  // 删除确认弹窗状态
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    todoId: number | null;
+    todoTitle: string;
+  }>({ isOpen: false, todoId: null, todoTitle: '' });
 
   // 清理定时器
   useEffect(() => {
@@ -27,9 +35,8 @@ const TodoPage: React.FC = () => {
     };
   }, []);
 
-  // 获取Todos
-  const fetchTodos = async () => {
-    setLoading(true);
+  // 获取Todos（静默刷新，不触发全屏loading）
+  const fetchTodos = async (silent = false) => {
     try {
       const response = await todoApi.getTodos();
       if (response.success) {
@@ -40,7 +47,9 @@ const TodoPage: React.FC = () => {
     } catch (err: any) {
       setError(extractErrorMessage(err, '获取数据失败'));
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setIsInitialLoad(false);
+      }
     }
   };
 
@@ -67,11 +76,28 @@ const TodoPage: React.FC = () => {
     fetchStats();
   }, []);
 
-  // 处理删除
-  const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这个待办事项吗？')) {
-      return;
-    }
+  // 请求删除（打开确认弹窗）
+  const requestDelete = (id: number) => {
+    const todo = todos.find(t => t.id === id);
+    setDeleteConfirm({
+      isOpen: true,
+      todoId: id,
+      todoTitle: todo?.title || '',
+    });
+  };
+
+  // 取消删除
+  const cancelDelete = () => {
+    setDeleteConfirm({ isOpen: false, todoId: null, todoTitle: '' });
+  };
+
+  // 确认删除
+  const confirmDelete = async () => {
+    const id = deleteConfirm.todoId;
+    if (!id) return;
+
+    // 先关闭弹窗
+    setDeleteConfirm({ isOpen: false, todoId: null, todoTitle: '' });
 
     try {
       const response = await todoApi.deleteTodo(id);
@@ -109,6 +135,14 @@ const TodoPage: React.FC = () => {
 
     const newStatus = todo.status === 'pending' ? 'completed' : 'pending';
 
+    // 乐观更新：立即更新UI
+    setTodos(prev => prev.map(t => {
+      if (t.id === id) {
+        return { ...t, status: newStatus };
+      }
+      return t;
+    }));
+
     try {
       // 包含version字段以支持并发控制
       const response = await todoApi.updateTodo(id, {
@@ -116,18 +150,32 @@ const TodoPage: React.FC = () => {
         version: todo.version
       });
       if (response.success) {
-        const updatedTodos = todos.map(t => {
+        // 用服务器返回的数据更新（包含新的 version）
+        setTodos(prev => prev.map(t => {
           if (t.id === id) {
             return response.data;
           }
           return t;
-        });
-        setTodos(updatedTodos);
+        }));
         fetchStats(); // 刷新统计信息
       } else {
+        // 回滚
+        setTodos(prev => prev.map(t => {
+          if (t.id === id) {
+            return todo;
+          }
+          return t;
+        }));
         setError(response.error?.message || '更新失败');
       }
     } catch (err: any) {
+      // 回滚
+      setTodos(prev => prev.map(t => {
+        if (t.id === id) {
+          return todo;
+        }
+        return t;
+      }));
       const message = extractErrorMessage(err, '更新失败');
       if (err.response?.status === 409) {
         setError(`${message}（请刷新或重试以获取最新数据）`);
@@ -135,6 +183,12 @@ const TodoPage: React.FC = () => {
         setError(message);
       }
     }
+  };
+
+  // 创建后刷新（静默）
+  const handleTodoCreated = () => {
+    fetchTodos(true);
+    fetchStats();
   };
 
   // 过滤Todos
@@ -151,7 +205,8 @@ const TodoPage: React.FC = () => {
     completed: todos.filter(t => t.status === 'completed').length,
   };
 
-  if (loading) {
+  // 只在首次加载时显示全屏loading
+  if (isInitialLoad) {
     return <div className="loading">加载中...</div>;
   }
 
@@ -162,7 +217,12 @@ const TodoPage: React.FC = () => {
           <h1>我的待办事项</h1>
         </header>
 
-        {error && <div className="error">{error}</div>}
+        {error && (
+          <div className="error" onClick={() => setError('')}>
+            {error}
+            <span className="error-close">×</span>
+          </div>
+        )}
 
         <div className="page-layout">
           <aside className="sidebar">
@@ -170,7 +230,7 @@ const TodoPage: React.FC = () => {
           </aside>
 
           <main className="main-content">
-            <TodoForm onTodoCreated={() => { fetchTodos(); fetchStats(); }} />
+            <TodoForm onTodoCreated={handleTodoCreated} />
 
             <div className="todo-filters">
               <button
@@ -211,7 +271,7 @@ const TodoPage: React.FC = () => {
                     key={todo.id}
                     todo={todo}
                     onToggle={handleToggle}
-                    onDelete={handleDelete}
+                    onDelete={requestDelete}
                     isLeaving={leavingIds.has(todo.id)}
                   />
                 ))
@@ -220,6 +280,17 @@ const TodoPage: React.FC = () => {
           </main>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        title="删除确认"
+        message={`确定要删除「${deleteConfirm.todoTitle}」吗？此操作无法撤销。`}
+        confirmText="删除"
+        cancelText="取消"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
     </div>
   );
 };

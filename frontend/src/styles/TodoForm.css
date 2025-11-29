@@ -1,46 +1,123 @@
+/* ========================================
+   Todo Form - Neo-Brutalism Style
+   ======================================== */
+
+.todo-form {
+  background: var(--neo-cyan);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  padding: 28px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: visible;
+}
+
+/* Decorative elements */
+.todo-form::before {
+  content: '+';
+  position: absolute;
+  top: -16px;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  background: var(--neo-yellow);
+  border: 4px solid var(--black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.todo-form::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 30px;
+  width: 60px;
+  height: 20px;
+  background: var(--neo-pink);
+  border: 3px solid var(--black);
+  transform: skewX(-10deg);
+}
+
+/* Form Title */
 .todo-form h3 {
   margin-bottom: 24px;
   color: var(--text-color);
   font-size: 24px;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  position: relative;
+  display: inline-block;
 }
 
-.form-textarea {
+.todo-form h3::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
   width: 100%;
-  padding: 14px;
-  border: 4px solid var(--border-color);
-  font-size: 16px;
-  font-family: inherit;
-  font-weight: 700;
+  height: 4px;
+  background: var(--black);
+}
+
+/* Form Input Override */
+.todo-form .form-input,
+.todo-form .form-textarea {
+  background: var(--white);
+  border: 4px solid var(--black);
+  box-shadow: var(--shadow-md);
+}
+
+.todo-form .form-input:focus,
+.todo-form .form-textarea:focus {
+  border-color: var(--neo-pink);
+  box-shadow: 6px 6px 0 var(--neo-pink);
+}
+
+/* Form Textarea */
+.todo-form .form-textarea {
+  min-height: 80px;
   resize: vertical;
-  transition: var(--transition);
-  box-shadow: 4px 4px 0 var(--border-color);
 }
 
-.form-textarea:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 6px 6px 0 var(--primary-color);
-  transform: translate(-2px, -2px);
-}
-
+/* Submit Button */
 .todo-form .btn {
   width: 100%;
-  padding: 16px;
+  padding: 16px 24px;
   font-size: 18px;
   font-weight: 900;
+  background: var(--neo-yellow);
+  border: 4px solid var(--black);
+  box-shadow: 6px 6px 0 var(--black);
+  margin-top: 8px;
+}
+
+.todo-form .btn:hover:not(:disabled) {
+  background: var(--neo-lime);
+  transform: translate(-4px, -4px);
+  box-shadow: 10px 10px 0 var(--black);
+}
+
+.todo-form .btn:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 3px 3px 0 var(--black);
 }
 
 .todo-form .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
   transform: none;
-  box-shadow: 4px 4px 0 var(--border-color);
+  box-shadow: 6px 6px 0 var(--black);
 }
 
-.todo-form .btn:disabled:hover {
-  transform: none;
-  box-shadow: 4px 4px 0 var(--border-color);
+/* Error State */
+.todo-form .error {
+  margin-bottom: 16px;
+  background: var(--neo-red);
+  border: 3px solid var(--black);
+  box-shadow: 4px 4px 0 var(--black);
 }

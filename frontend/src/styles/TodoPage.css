@@ -1,32 +1,58 @@
+/* ========================================
+   Todo Page - Neo-Brutalism Layout
+   ======================================== */
+
 .todo-page {
   min-height: 100vh;
-  padding: 20px 0;
+  padding: 40px 0;
 }
 
+/* ========================================
+   Header
+   ======================================== */
 .page-header {
-  margin-bottom: 30px;
-  padding: 20px 0;
+  margin-bottom: 40px;
+  padding: 24px 0;
+  position: relative;
 }
 
 .page-header h1 {
-  font-size: 48px;
+  font-size: 56px;
   color: var(--text-color);
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: -2px;
-  text-shadow: 4px 4px 0 var(--warning-color);
+  letter-spacing: -3px;
+  line-height: 1.1;
+  position: relative;
+  display: inline-block;
+  text-shadow: 6px 6px 0 var(--neo-cyan);
 }
 
+/* Decorative underline */
+.page-header h1::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 100%;
+  height: 8px;
+  background: var(--neo-yellow);
+  border: 3px solid var(--black);
+}
+
+/* ========================================
+   Page Layout
+   ======================================== */
 .page-layout {
   display: flex;
-  gap: 24px;
+  gap: 32px;
   align-items: flex-start;
 }
 
 .sidebar {
-  flex: 0 0 280px;
+  flex: 0 0 300px;
   position: sticky;
-  top: 20px;
+  top: 24px;
 }
 
 .main-content {
@@ -34,45 +60,91 @@
   min-width: 0;
 }
 
+/* ========================================
+   Filter Section
+   ======================================== */
 .todo-filters {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 24px;
-  padding: 24px;
-  background: var(--success-color);
+  padding: 20px;
+  background: var(--neo-lime);
   border: var(--border-width) solid var(--border-color);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+}
+
+/* Decorative corner */
+.todo-filters::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: 20px;
+  width: 24px;
+  height: 24px;
+  background: var(--neo-pink);
+  border: 3px solid var(--black);
+  transform: rotate(45deg);
 }
 
 .filter-btn {
-  padding: 12px 24px;
+  padding: 12px 20px;
   border: 4px solid var(--border-color);
-  background: var(--card-background);
+  background: var(--white);
   cursor: pointer;
   transition: var(--transition);
-  font-size: 16px;
+  font-family: inherit;
+  font-size: 14px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  box-shadow: 4px 4px 0 var(--border-color);
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.filter-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: var(--neo-yellow);
+  transition: left 200ms ease;
+  z-index: -1;
 }
 
 .filter-btn:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 var(--border-color);
+  transform: translate(-3px, -3px);
+  box-shadow: var(--shadow-lg);
+}
+
+.filter-btn:hover::before {
+  left: 0;
 }
 
 .filter-btn.active {
-  background: var(--text-color);
-  color: var(--card-background);
-  transform: translate(2px, 2px);
+  background: var(--black);
+  color: var(--white);
+  transform: translate(3px, 3px);
   box-shadow: 2px 2px 0 var(--border-color);
 }
 
-.todo-list {
-  margin-top: 20px;
+.filter-btn.active::before {
+  display: none;
 }
 
+/* ========================================
+   Todo List
+   ======================================== */
+.todo-list {
+  margin-top: 24px;
+}
+
+/* ========================================
+   Responsive Design
+   ======================================== */
 @media (max-width: 1024px) {
   .page-layout {
     flex-direction: column;
@@ -83,21 +155,57 @@
     width: 100%;
     position: static;
   }
+
+  .page-header h1 {
+    font-size: 42px;
+  }
 }
 
 @media (max-width: 768px) {
+  .todo-page {
+    padding: 20px 0;
+  }
+
+  .page-header {
+    margin-bottom: 24px;
+  }
+
   .page-header h1 {
     font-size: 32px;
+    letter-spacing: -1px;
+  }
+
+  .page-header h1::before {
+    top: 4px;
+    left: 4px;
+  }
+
+  .page-header h1::after {
+    height: 6px;
+    bottom: -6px;
   }
 
   .todo-filters {
     flex-wrap: wrap;
     gap: 8px;
+    padding: 16px;
   }
 
   .filter-btn {
-    flex: 1;
-    min-width: 80px;
+    flex: 1 1 calc(33.333% - 8px);
+    min-width: 0;
     text-align: center;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-header h1 {
+    font-size: 28px;
+  }
+
+  .filter-btn {
+    flex: 1 1 100%;
   }
 }

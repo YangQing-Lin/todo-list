@@ -1,85 +1,170 @@
-:root {
-  /* Neo-Brutalism Color Palette */
-  --primary-color: #00D9FF;
-  --primary-hover: #00B8D4;
-  --success-color: #8AFF80;
-  --danger-color: #FF006E;
-  --warning-color: #FFEE00;
-  --text-color: #000;
-  --text-secondary: #333;
-  --border-color: #000;
-  --background-color: #FFF;
-  --card-background: #FFF;
+/* ========================================
+   Neo-Brutalism Design System
+   ======================================== */
 
-  /* Neo-Brutalism Styles */
-  --border-width: 5px;
-  --shadow: 6px 6px 0 #000;
-  --shadow-hover: 8px 8px 0 #000;
-  --border-radius: 0;
+:root {
+  /* Neo-Brutalism Color Palette - Bold & Vibrant */
+  --neo-yellow: #FFEE00;
+  --neo-pink: #FF69B4;
+  --neo-cyan: #00FFFF;
+  --neo-lime: #BFFF00;
+  --neo-orange: #FF6B35;
+  --neo-purple: #A855F7;
+  --neo-blue: #3B82F6;
+  --neo-red: #FF0054;
+  --neo-mint: #00FF9F;
+  --neo-peach: #FFBE98;
+
+  /* Core Colors */
+  --primary-color: var(--neo-cyan);
+  --secondary-color: var(--neo-yellow);
+  --success-color: var(--neo-lime);
+  --danger-color: var(--neo-red);
+  --warning-color: var(--neo-orange);
+  --accent-color: var(--neo-pink);
+
+  /* Neutral Colors */
+  --black: #000000;
+  --white: #FFFFFF;
+  --off-white: #FFFEF0;
+  --text-color: var(--black);
+  --text-secondary: #1a1a1a;
+  --border-color: var(--black);
+  --background-color: var(--off-white);
+  --card-background: var(--white);
+
+  /* Neo-Brutalism Core Styles */
+  --border-thin: 3px;
+  --border-medium: 4px;
+  --border-thick: 5px;
+  --border-width: var(--border-thick);
+
+  /* Shadows - Hard edges only! */
+  --shadow-sm: 3px 3px 0 var(--black);
+  --shadow-md: 5px 5px 0 var(--black);
+  --shadow-lg: 8px 8px 0 var(--black);
+  --shadow-xl: 12px 12px 0 var(--black);
+
+  /* No border radius - pure brutalism */
+  --radius-none: 0;
+  --radius-sm: 0;
+
+  /* Animation Curves - Snappy & Playful */
+  --ease-snap: cubic-bezier(0.2, 0, 0, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-back: cubic-bezier(0.18, 1.4, 0.2, 1);
-  --ease-snap: cubic-bezier(0.37, 1.04, 0.68, 1);
-  --transition: transform 240ms var(--ease-out), box-shadow 240ms var(--ease-out), background-color 200ms ease, color 200ms ease, opacity 220ms ease;
-  --transition-fast: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+
+  /* Transitions */
+  --transition-fast: 120ms var(--ease-snap);
+  --transition-normal: 200ms var(--ease-out);
+  --transition-slow: 300ms var(--ease-out);
+  --transition: transform var(--transition-normal), box-shadow var(--transition-normal), background-color var(--transition-fast);
+
+  /* Typography */
+  --font-primary: 'Space Grotesk', 'Arial Black', 'Arial Bold', system-ui, sans-serif;
+  --font-mono: 'Space Mono', 'Courier New', monospace;
 }
 
-* {
+/* Reset */
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+/* Base Styles */
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
 body {
-  font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif;
+  font-family: var(--font-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--background-color);
   color: var(--text-color);
   line-height: 1.5;
   font-weight: 700;
+  min-height: 100vh;
 }
 
 #root {
   min-height: 100vh;
 }
 
+/* Container */
 .container {
-  max-width: 800px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 24px;
 }
 
+/* ========================================
+   Card Component
+   ======================================== */
 .card {
   background: var(--card-background);
   border: var(--border-width) solid var(--border-color);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
   padding: 24px;
   margin-bottom: 24px;
   transition: var(--transition);
-}
-
-.card:hover {
-  box-shadow: var(--shadow-hover);
-  transform: translate(-2px, -2px);
-}
-
-.btn {
-  padding: 12px 24px;
-  border: 4px solid var(--border-color);
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  transition: var(--transition);
-  outline: none;
-  box-shadow: 4px 4px 0 var(--border-color);
   position: relative;
 }
 
+.card:hover {
+  transform: translate(-4px, -4px);
+  box-shadow: var(--shadow-xl);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 20px;
+  height: 20px;
+  background: var(--neo-yellow);
+  border: var(--border-medium) solid var(--border-color);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+/* ========================================
+   Button Component
+   ======================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: var(--border-medium) solid var(--border-color);
+  background: var(--white);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: var(--transition);
+  outline: none;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  user-select: none;
+}
+
 .btn:hover:not(:disabled) {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 var(--border-color);
+  transform: translate(-3px, -3px);
+  box-shadow: var(--shadow-lg);
 }
 
 .btn:active:not(:disabled) {
@@ -87,8 +172,28 @@ body {
   box-shadow: 2px 2px 0 var(--border-color);
 }
 
+.btn:focus-visible {
+  outline: 3px solid var(--neo-cyan);
+  outline-offset: 3px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Button Variants */
 .btn-primary {
   background: var(--primary-color);
+  color: var(--text-color);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--neo-cyan);
+}
+
+.btn-secondary {
+  background: var(--secondary-color);
   color: var(--text-color);
 }
 
@@ -99,61 +204,175 @@ body {
 
 .btn-danger {
   background: var(--danger-color);
-  color: #FFF;
+  color: var(--white);
 }
 
+.btn-danger:hover:not(:disabled) {
+  background: #ff1a6a;
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 13px;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-sm:hover:not(:disabled) {
+  box-shadow: var(--shadow-md);
+}
+
+/* ========================================
+   Form Elements
+   ======================================== */
 .form-group {
-  margin-bottom: 15px;
+  margin-bottom: 16px;
 }
 
-.form-input {
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 14px;
+}
+
+.form-input,
+.form-textarea {
   width: 100%;
-  padding: 14px;
-  border: 4px solid var(--border-color);
+  padding: 14px 16px;
+  border: var(--border-medium) solid var(--border-color);
+  background: var(--white);
+  font-family: inherit;
   font-size: 16px;
   font-weight: 700;
   transition: var(--transition);
-  box-shadow: 4px 4px 0 var(--border-color);
+  box-shadow: var(--shadow-md);
 }
 
-.form-input:focus {
+.form-input:focus,
+.form-textarea:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 6px 6px 0 var(--primary-color);
+  border-color: var(--neo-cyan);
+  box-shadow: 6px 6px 0 var(--neo-cyan);
   transform: translate(-2px, -2px);
 }
 
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: #888;
+  font-weight: 600;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
 .loading {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 40px;
-  color: var(--text-secondary);
+  padding: 60px 20px;
+  font-size: 20px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .error {
-  color: #FFF;
-  padding: 16px;
+  padding: 16px 20px;
+  padding-right: 50px;
   background: var(--danger-color);
-  border: 4px solid var(--border-color);
-  box-shadow: var(--shadow);
+  color: var(--white);
+  border: var(--border-medium) solid var(--border-color);
+  box-shadow: var(--shadow-md);
   margin-bottom: 20px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  position: relative;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.error:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.error::before {
+  content: '⚠';
+  margin-right: 8px;
+}
+
+.error-close {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 24px;
+  font-weight: 900;
+  opacity: 0.8;
+  transition: opacity 150ms ease;
+}
+
+.error:hover .error-close {
+  opacity: 1;
 }
 
 .empty-state {
   text-align: center;
-  padding: 60px 20px;
-  color: var(--text-secondary);
+  padding: 80px 24px;
+  background: var(--white);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow-lg);
 }
 
 .empty-state h3 {
-  margin-bottom: 10px;
-  font-size: 24px;
+  font-size: 28px;
+  font-weight: 900;
+  text-transform: uppercase;
+  margin-bottom: 12px;
 }
 
 .empty-state p {
   font-size: 16px;
+  color: var(--text-secondary);
+}
+
+/* ========================================
+   Selection & Scrollbar
+   ======================================== */
+::selection {
+  background: var(--neo-yellow);
+  color: var(--black);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--off-white);
+  border: 2px solid var(--black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--neo-cyan);
+  border: 2px solid var(--black);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neo-pink);
 }

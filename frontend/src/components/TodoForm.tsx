@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { todoApi } from '../services/api';
+import { getRandomColor } from '../types';
 import '../styles/TodoForm.css';
 
 interface TodoFormProps {
@@ -27,6 +28,7 @@ const TodoForm: React.FC<TodoFormProps> = ({ onTodoCreated }) => {
       await todoApi.createTodo({
         title: title.trim(),
         description: description.trim() || undefined,
+        color: getRandomColor(),
       });
 
       setTitle('');

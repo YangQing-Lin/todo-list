@@ -1,5 +1,5 @@
 import React from 'react';
-import { Todo } from '../types';
+import { Todo, getDefaultColorById } from '../types';
 import '../styles/TodoItem.css';
 
 interface TodoItemProps {
@@ -21,9 +21,14 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, isLeaving
   };
 
   const isCompleted = todo.status === 'completed';
+  // 使用 Todo 自带颜色，旧数据则根据 ID 计算稳定默认色
+  const backgroundColor = todo.color || getDefaultColorById(todo.id);
 
   return (
-    <div className={`todo-item ${isCompleted ? 'completed' : ''} ${isLeaving ? 'is-leaving' : ''}`}>
+    <div
+      className={`todo-item ${isCompleted ? 'completed' : ''} ${isLeaving ? 'is-leaving' : ''}`}
+      style={{ backgroundColor: isCompleted ? undefined : backgroundColor }}
+    >
       <div className="todo-content">
         <div className="todo-left">
           <input

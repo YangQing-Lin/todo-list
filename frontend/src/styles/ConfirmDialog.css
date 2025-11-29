@@ -1,0 +1,201 @@
+/* ========================================
+   Confirm Dialog - Neo-Brutalism Style
+   ======================================== */
+
+/* Overlay */
+.confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: overlay-fade-in 150ms ease-out;
+}
+
+@keyframes overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Dialog Box */
+.confirm-dialog {
+  background: var(--white);
+  border: 5px solid var(--black);
+  box-shadow: 12px 12px 0 var(--black);
+  max-width: 420px;
+  width: 100%;
+  animation: dialog-pop-in 250ms var(--ease-bounce);
+  position: relative;
+}
+
+@keyframes dialog-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  60% {
+    transform: scale(1.02) translateY(-5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Decorative corner */
+.confirm-dialog::before {
+  content: '!';
+  position: absolute;
+  top: -18px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  background: var(--neo-yellow);
+  border: 4px solid var(--black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.confirm-danger::before {
+  background: var(--neo-red);
+  color: var(--white);
+}
+
+.confirm-warning::before {
+  background: var(--neo-orange);
+}
+
+.confirm-info::before {
+  background: var(--neo-cyan);
+}
+
+/* Header */
+.confirm-header {
+  padding: 24px 24px 16px;
+  border-bottom: 4px solid var(--black);
+}
+
+.confirm-header h3 {
+  font-size: 22px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+/* Body */
+.confirm-body {
+  padding: 20px 24px 24px;
+}
+
+.confirm-body p {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* Actions */
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+  padding: 0 24px 24px;
+}
+
+.confirm-actions .btn {
+  flex: 1;
+  padding: 14px 20px;
+  font-size: 15px;
+}
+
+.confirm-actions .btn-cancel {
+  background: var(--white);
+  border: 4px solid var(--black);
+  box-shadow: 4px 4px 0 var(--black);
+}
+
+.confirm-actions .btn-cancel:hover {
+  background: #f5f5f5;
+}
+
+.confirm-actions .btn-confirm {
+  color: var(--white);
+}
+
+.confirm-actions .btn-danger {
+  background: var(--neo-red);
+}
+
+.confirm-actions .btn-danger:hover {
+  background: #ff3366;
+}
+
+.confirm-actions .btn-warning {
+  background: var(--neo-orange);
+  color: var(--black);
+}
+
+.confirm-actions .btn-info {
+  background: var(--neo-cyan);
+  color: var(--black);
+}
+
+/* Variant Borders */
+.confirm-danger .confirm-header {
+  background: #fff0f3;
+}
+
+.confirm-warning .confirm-header {
+  background: #fff8e6;
+}
+
+.confirm-info .confirm-header {
+  background: #e6feff;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .confirm-dialog {
+    box-shadow: 8px 8px 0 var(--black);
+  }
+
+  .confirm-header {
+    padding: 20px 20px 14px;
+  }
+
+  .confirm-header h3 {
+    font-size: 18px;
+  }
+
+  .confirm-body {
+    padding: 16px 20px 20px;
+  }
+
+  .confirm-body p {
+    font-size: 15px;
+  }
+
+  .confirm-actions {
+    flex-direction: column;
+    padding: 0 20px 20px;
+  }
+
+  .confirm-actions .btn {
+    padding: 12px 16px;
+  }
+}

@@ -1,19 +1,68 @@
+/* ========================================
+   App Container - Neo-Brutalism Background
+   ======================================== */
+
 .App {
   min-height: 100vh;
-  background: #FFF;
+  background: var(--off-white);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Decorative Grid Pattern */
+.App::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-image:
     repeating-linear-gradient(
       0deg,
       transparent,
-      transparent 50px,
-      rgba(0, 0, 0, 0.03) 50px,
-      rgba(0, 0, 0, 0.03) 51px
+      transparent 40px,
+      rgba(0, 0, 0, 0.04) 40px,
+      rgba(0, 0, 0, 0.04) 41px
     ),
     repeating-linear-gradient(
       90deg,
       transparent,
-      transparent 50px,
-      rgba(0, 0, 0, 0.03) 50px,
-      rgba(0, 0, 0, 0.03) 51px
+      transparent 40px,
+      rgba(0, 0, 0, 0.04) 40px,
+      rgba(0, 0, 0, 0.04) 41px
     );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Decorative Floating Shapes */
+.App::after {
+  content: '';
+  position: fixed;
+  top: 60px;
+  right: 40px;
+  width: 80px;
+  height: 80px;
+  background: var(--neo-yellow);
+  border: 4px solid var(--black);
+  box-shadow: 6px 6px 0 var(--black);
+  pointer-events: none;
+  z-index: 1;
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(5deg);
+  }
+}
+
+/* Content wrapper to ensure proper stacking */
+.App > * {
+  position: relative;
+  z-index: 2;
 }

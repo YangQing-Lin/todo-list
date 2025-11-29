@@ -1,57 +1,91 @@
+/* ========================================
+   Todo Item - Neo-Brutalism Style
+   ======================================== */
+
 .todo-item {
-  background: var(--card-background);
+  background: var(--white);
   border: 4px solid var(--border-color);
-  box-shadow: 4px 4px 0 var(--border-color);
+  box-shadow: var(--shadow-md);
   margin-bottom: 16px;
-  transition: var(--transition), filter 220ms ease;
+  transition: var(--transition), filter 200ms ease;
   position: relative;
-  transform-origin: top left;
-  animation: todo-pop 520ms var(--ease-back);
+  transform-origin: center left;
+  animation: todo-slide-in 400ms var(--ease-back);
 }
 
-.todo-item:nth-child(3n+1) {
-  background: #FFE5EC;
-}
+/* 颜色现在由内联样式提供（每个 Todo 创建时固定颜色）
+   默认背景色作为 fallback */
 
-.todo-item:nth-child(3n+2) {
-  background: #E0F7FF;
-}
-
-.todo-item:nth-child(3n+3) {
-  background: #F0FFE5;
-}
-
+/* Hover Effect */
 .todo-item:hover {
-  box-shadow: 8px 8px 0 var(--border-color);
-  transform: translate(-3px, -3px);
+  box-shadow: var(--shadow-lg);
+  transform: translate(-4px, -4px);
 }
 
+/* Decorative corner on hover */
+.todo-item::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  background: var(--neo-red);
+  border: 3px solid var(--black);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.todo-item:hover::before {
+  opacity: 1;
+}
+
+/* ========================================
+   Completed State
+   ======================================== */
 .todo-item.completed {
-  opacity: 0.82;
-  background: linear-gradient(135deg, #f5f5f5 0%, #e9e9e9 100%) !important;
-  filter: saturate(0.75);
-  animation: todo-complete 380ms var(--ease-back);
+  opacity: 0.75;
+  background: #e5e5e5 !important;
+  filter: saturate(0.5);
 }
 
+.todo-item.completed:hover {
+  opacity: 0.85;
+}
+
+.todo-item.completed::before {
+  background: var(--neo-lime);
+}
+
+/* ========================================
+   Leaving Animation
+   ======================================== */
 .todo-item.is-leaving {
   animation: todo-leave 260ms var(--ease-snap) forwards;
   pointer-events: none;
 }
 
+/* ========================================
+   Content Layout
+   ======================================== */
 .todo-content {
   display: flex;
   align-items: center;
-  padding: 16px;
+  padding: 16px 20px;
   gap: 16px;
 }
 
 .todo-left {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 14px;
   flex: 1;
+  min-width: 0;
 }
 
+/* ========================================
+   Checkbox - Neo-Brutalism Style
+   ======================================== */
 .todo-checkbox {
   width: 28px;
   height: 28px;
@@ -60,178 +94,195 @@
   flex-shrink: 0;
   appearance: none;
   border: 4px solid var(--border-color);
-  background: var(--card-background);
+  background: var(--white);
   position: relative;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background-color 200ms ease, border-color 220ms ease;
-  box-shadow: 3px 3px 0 var(--border-color);
-  will-change: transform, box-shadow;
+  transition: var(--transition);
+  box-shadow: 3px 3px 0 var(--black);
 }
 
 .todo-checkbox:hover {
-  transform: translate(-2px, -2px) scale(1.02);
-  box-shadow: 5px 5px 0 var(--border-color);
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--black);
+  background: var(--neo-yellow);
 }
 
 .todo-checkbox:checked {
-  background: var(--text-color);
-  transform: translate(-2px, -2px) scale(1.05);
-  box-shadow: 7px 7px 0 var(--border-color);
+  background: var(--black);
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--neo-lime);
 }
 
 .todo-checkbox:checked::after {
-  content: "✓";
+  content: '✓';
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: var(--card-background);
-  font-size: 20px;
+  color: var(--white);
+  font-size: 18px;
   font-weight: 900;
-  animation: checkmark 280ms var(--ease-out);
-}
-
-.todo-text {
-  flex: 1;
-}
-
-.todo-title {
-  font-size: 20px;
-  font-weight: 900;
-  margin-bottom: 8px;
-  color: var(--text-color);
-  position: relative;
-  transition: color 200ms ease, opacity 240ms ease, transform var(--transition-fast);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.todo-title::after {
-  content: "";
-  position: absolute;
-  left: -2px;
-  bottom: -4px;
-  width: calc(100% + 4px);
-  height: 6px;
-  background: var(--warning-color);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 260ms var(--ease-out), background-color 180ms ease;
-}
-
-.todo-item.completed .todo-title {
-  text-decoration: none;
-  opacity: 0.72;
-}
-
-.todo-item.completed .todo-title::after {
-  transform: scaleX(1);
-  background: var(--success-color);
+  animation: check-pop 250ms var(--ease-bounce);
 }
 
 .todo-item.completed .todo-checkbox {
-  border-color: var(--text-color);
+  background: var(--neo-lime);
+  border-color: var(--black);
+  box-shadow: 3px 3px 0 var(--black);
+}
+
+.todo-item.completed .todo-checkbox::after {
+  color: var(--black);
+}
+
+/* ========================================
+   Text Content
+   ======================================== */
+.todo-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.todo-title {
+  font-size: 18px;
+  font-weight: 900;
+  margin-bottom: 6px;
+  color: var(--text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+  word-break: break-word;
+}
+
+/* Strikethrough effect for completed */
+.todo-item.completed .todo-title {
+  position: relative;
+}
+
+.todo-item.completed .todo-title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 4px;
+  background: var(--black);
+  animation: strike 300ms ease-out forwards;
 }
 
 .todo-description {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text-secondary);
-  margin-bottom: 12px;
-  line-height: 1.6;
+  margin-bottom: 10px;
+  line-height: 1.5;
   font-weight: 600;
+  word-break: break-word;
 }
 
+.todo-item.completed .todo-description {
+  opacity: 0.6;
+}
+
+/* ========================================
+   Meta Information
+   ======================================== */
 .todo-meta {
   display: flex;
-  gap: 16px;
-  font-size: 13px;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
   color: var(--text-secondary);
   font-weight: 700;
 }
 
-.todo-completed {
-  color: var(--text-color);
-  background: var(--success-color);
-  padding: 2px 8px;
-  border: 2px solid var(--border-color);
-  font-weight: 900;
+.todo-date {
+  opacity: 0.8;
 }
 
+.todo-completed {
+  color: var(--black);
+  background: var(--neo-lime);
+  padding: 3px 10px;
+  border: 2px solid var(--black);
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+/* ========================================
+   Actions
+   ======================================== */
 .todo-actions {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
 
-.todo-actions .btn {
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background-color 200ms ease, color 200ms ease;
+.todo-actions .btn-danger {
+  background: var(--neo-red);
+  color: var(--white);
 }
 
-.btn-sm {
-  padding: 10px 20px;
-  font-size: 14px;
+.todo-actions .btn-danger:hover:not(:disabled) {
+  background: #ff3377;
 }
 
-.btn-sm:active {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 var(--border-color);
-}
-
-@keyframes todo-pop {
+/* ========================================
+   Animations
+   ======================================== */
+@keyframes todo-slide-in {
   0% {
     opacity: 0;
-    transform: translateY(16px) scale(0.97) rotate(-0.4deg);
+    transform: translateX(-30px) scale(0.95);
   }
-  55% {
+  60% {
     opacity: 1;
-    transform: translateY(-6px) scale(1.03) rotate(0.6deg);
+    transform: translateX(8px) scale(1.02);
   }
   100% {
-    opacity: 1;
-    transform: translateY(0) scale(1) rotate(0deg);
+    transform: translateX(0) scale(1);
   }
 }
 
 @keyframes todo-leave {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(12px) scale(0.96);
-  }
-}
-
-@keyframes todo-complete {
   0% {
-    box-shadow: 4px 4px 0 var(--border-color);
-  }
-  60% {
-    box-shadow: 11px 11px 0 var(--border-color);
+    opacity: 1;
+    transform: translateX(0) scale(1);
   }
   100% {
-    box-shadow: 6px 6px 0 var(--border-color);
+    opacity: 0;
+    transform: translateX(30px) scale(0.95);
   }
 }
 
-@keyframes checkmark {
+@keyframes check-pop {
   0% {
-    transform: translate(-50%, -50%) scale(0.6);
-    opacity: 0;
+    transform: translate(-50%, -50%) scale(0);
   }
   60% {
-    transform: translate(-50%, -52%) scale(1.1);
-    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.3);
   }
   100% {
     transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
   }
 }
 
+@keyframes strike {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+/* ========================================
+   Responsive
+   ======================================== */
 @media (max-width: 768px) {
   .todo-content {
     flex-direction: column;
     align-items: stretch;
+    padding: 14px;
   }
 
   .todo-left {
@@ -241,10 +292,16 @@
   .todo-actions {
     justify-content: flex-end;
     margin-top: 12px;
+    padding-top: 12px;
+    border-top: 2px dashed var(--black);
   }
 
   .todo-meta {
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
+  }
+
+  .todo-title {
+    font-size: 16px;
   }
 }

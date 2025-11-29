@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Background -->
+  <rect x="8" y="8" width="112" height="112" fill="#FFEE00" stroke="#000" stroke-width="6"/>
+
+  <!-- Shadow for checkbox -->
+  <rect x="32" y="36" width="40" height="40" fill="#000"/>
+
+  <!-- Checkbox -->
+  <rect x="28" y="32" width="40" height="40" fill="#00FFFF" stroke="#000" stroke-width="5"/>
+
+  <!-- Checkmark -->
+  <path d="M38 52 L48 62 L62 42" fill="none" stroke="#000" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter"/>
+
+  <!-- Lines (task list) -->
+  <rect x="80" y="36" width="32" height="8" fill="#000"/>
+  <rect x="80" y="52" width="24" height="8" fill="#000"/>
+
+  <!-- Second task shadow -->
+  <rect x="32" y="92" width="40" height="8" fill="#000"/>
+
+  <!-- Second task line -->
+  <rect x="28" y="88" width="40" height="8" fill="#FF69B4" stroke="#000" stroke-width="3"/>
+
+  <!-- More lines -->
+  <rect x="80" y="88" width="32" height="8" fill="#000"/>
+</svg>
