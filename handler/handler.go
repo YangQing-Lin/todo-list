@@ -197,7 +197,7 @@ func (h *Handler) ListTodos(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, http.StatusOK, response)
 }
 
-// CreateTodo 创建新的待办事项
+// CreateTodo 创建待办事项(带超时控制)
 // @Summary 创建待办事项
 // @Description 创建一个新的待办事项
 // @Tags todos
@@ -209,6 +209,9 @@ func (h *Handler) ListTodos(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} handler.Response
 // @Router /todos [post]
 func (h *Handler) CreateTodo(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), CreateTimeout)
+	defer cancel()
+
 	defer r.Body.Close()
 
 	if r.Method != http.MethodPost {
@@ -235,9 +238,14 @@ func (h *Handler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	// 创建Todo
 	todo := model.NewTodo(req.Title, req.Description)
 
-	if err := h.db.CreateTodo(todo); err != nil {
+	if err := h.db.CreateTodoContext(ctx, todo); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("CreateTodo timeout: %v", err)
+			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "创建超时，请稍后重试")
+			return
+		}
 		log.Printf("Failed to create todo: %v", err)
-		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", fmt.Sprintf("创建待办事项失败: %v", err))
+		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "创建失败")
 		return
 	}
 
