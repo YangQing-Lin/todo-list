@@ -191,6 +191,12 @@ const TodoPage: React.FC = () => {
     fetchStats();
   };
 
+  // 更新后刷新
+  const handleTodoUpdated = (updatedTodo: Todo) => {
+    setTodos(prev => prev.map(t => t.id === updatedTodo.id ? updatedTodo : t));
+    fetchStats();
+  };
+
   // 过滤Todos
   const filteredTodos = todos.filter(todo => {
     if (filter === 'pending') return todo.status === 'pending';
@@ -272,6 +278,7 @@ const TodoPage: React.FC = () => {
                     todo={todo}
                     onToggle={handleToggle}
                     onDelete={requestDelete}
+                    onUpdate={handleTodoUpdated}
                     isLeaving={leavingIds.has(todo.id)}
                   />
                 ))

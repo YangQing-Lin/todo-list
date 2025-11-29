@@ -305,3 +305,114 @@
     font-size: 16px;
   }
 }
+
+/* ========================================
+   Edit Mode
+   ======================================== */
+.todo-item.editing {
+  border-color: var(--neo-blue);
+  background: #f0f8ff !important;
+}
+
+.todo-item.editing::before {
+  opacity: 1;
+  background: var(--neo-blue);
+}
+
+.todo-error {
+  background: var(--neo-red);
+  color: var(--white);
+  padding: 8px 12px;
+  border-bottom: 3px solid var(--black);
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.todo-error button {
+  background: none;
+  border: none;
+  color: var(--white);
+  font-size: 24px;
+  font-weight: 900;
+  cursor: pointer;
+  padding: 0 6px;
+  line-height: 1;
+}
+
+.todo-edit-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.todo-edit-input,
+.todo-edit-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 3px solid var(--black);
+  background: var(--white);
+  font-family: var(--font-main);
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--black);
+  transition: var(--transition);
+}
+
+.todo-edit-input {
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.todo-edit-input:focus,
+.todo-edit-textarea:focus {
+  outline: none;
+  border-color: var(--neo-blue);
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--black);
+}
+
+.todo-edit-textarea {
+  resize: vertical;
+  min-height: 60px;
+  font-weight: 600;
+}
+
+.todo-edit-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.todo-text {
+  cursor: pointer;
+  user-select: none;
+}
+
+.todo-text:hover {
+  opacity: 0.8;
+}
+
+.todo-actions .btn-primary {
+  background: var(--neo-blue);
+  color: var(--white);
+}
+
+.todo-actions .btn-primary:hover:not(:disabled) {
+  background: #0055ff;
+}
+
+.todo-actions .btn-secondary {
+  background: var(--white);
+  color: var(--black);
+  border-color: var(--black);
+}
+
+.todo-actions .btn-secondary:hover:not(:disabled) {
+  background: var(--neo-yellow);
+}
