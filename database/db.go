@@ -576,3 +576,33 @@ func (db *DB) ListTodosContext(ctx context.Context, filter TodoFilter) ([]model.
 
 	return todos, total, nil
 }
+
+// CreateTodoContext 创建待办事项(支持 Context)
+func (db *DB) CreateTodoContext(ctx context.Context, todo *model.Todo) error {
+	query := `
+		INSERT INTO todos (title, description, status, due_date, created_at, updated_at, version)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`
+
+	result, err := db.conn.ExecContext(
+		ctx,
+		query,
+		todo.Title,
+		todo.Description,
+		todo.Status,
+		todo.DueDate,
+		todo.CreatedAt,
+		todo.Version,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create todo: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("failed to get last insert id: %w", err)
+	}
+
+	todo.ID = int(id)
+	return nil
+}
