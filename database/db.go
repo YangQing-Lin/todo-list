@@ -512,11 +512,23 @@ func (db *DB) ListTodosContext(ctx context.Context, filter TodoFilter) ([]model.
 
 	var todos []model.Todo
 	for rows.Next() {
-		// 检查 Context 是否已取消(可选,SQLite 可能不会自动检查)
+		/*
+			检查 Context 是否已取消(可选, SQLite 可能不会自动检查)
+			✅ 应该使用：
+			- 长时间运行的循环（如处理大量数据）
+			- I/O 密集型操作（如批量文件读取）
+			- 可能被用户中断的任务（如 HTTP 请求）
+
+			❌ 不需要使用：
+			- 短时间操作（< 100ms）
+			- CPU 密集型计算（Context 取消不能中断计算，反而增加开销）
+			- 数据库驱动已经自动支持 Context 的场景
+		*/
 		select {
 		case <-ctx.Done():
 			return nil, 0, ctx.Err()
 		default:
+			// 不阻塞，继续执行
 		}
 
 		var todo model.Todo
