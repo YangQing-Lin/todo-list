@@ -606,3 +606,44 @@ func (db *DB) CreateTodoContext(ctx context.Context, todo *model.Todo) error {
 	todo.ID = int(id)
 	return nil
 }
+
+// UpdateTodoContext 更新待办事项(支持 Context)
+func (db *DB) UpdateTodoContext(ctx context.Context, todo *model.Todo) error {
+	query := `
+		UPDATE todos
+		SET title = ?, description = ?, status = ?,
+		    due_date = ?, updated_at = ?, completed_at = ?, version = version + 1
+		WHERE id = ? AND version = ?
+	`
+
+	todo.UpdatedAt = time.Now()
+
+	result, err := db.conn.ExecContext(
+		ctx,
+		query,
+		todo.Title,
+		todo.Description,
+		todo.Status,
+		todo.DueDate,
+		todo.UpdatedAt,
+		todo.CompletedAt,
+		todo.ID,
+		todo.Version,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update todo: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return ErrVersionConflict
+	}
+
+	todo.Version++
+
+	return nil
+}
