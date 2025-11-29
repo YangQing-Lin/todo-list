@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,6 +47,16 @@ type ErrorInfo struct {
 type Handler struct {
 	db *database.DB
 }
+
+// 超时配置
+const (
+	DefaultTimeout = 10 * time.Second // 默认超时
+	ListTimeout    = 5 * time.Second  // 列表查询超时
+	CreateTimeout  = 3 * time.Second  // 创建超时
+	UpdateTimeout  = 3 * time.Second  // 更新超时
+	DeleteTimeout  = 2 * time.Second  // 删除超时
+	StatsTimeout   = 5 * time.Second  // 统计查询超时
+)
 
 // NewHandler 创建新的处理器
 func NewHandler(db *database.DB) *Handler {
@@ -100,7 +111,7 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, http.StatusOK, response)
 }
 
-// ListTodos 获取待办事项列表
+// ListTodos 获取待办事项列表(带超时控制)
 // @Summary 获取待办事项列表
 // @Description 支持筛选、搜索、排序和分页的待办事项列表
 // @Tags todos
@@ -115,18 +126,19 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} handler.Response
 // @Router /todos [get]
 func (h *Handler) ListTodos(w http.ResponseWriter, r *http.Request) {
+	// 创建带超时的 Context
+	ctx, cancel := context.WithTimeout(r.Context(), ListTimeout)
+	defer cancel()
+
 	// 解析查询参数
 	status := r.URL.Query().Get("status")
 	search := r.URL.Query().Get("search")
 	sort := r.URL.Query().Get("sort")
 	order := r.URL.Query().Get("order")
 
-	// 解析分页参数
 	limit := 50
-	offset := 0
-
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if l, err := strconv.Atoi(l); err == nil && l > 0 {
 			limit = l
 			// 限制最大值，防止恶意请求
 			if limit > 200 {
@@ -135,8 +147,9 @@ func (h *Handler) ListTodos(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+	offset := 0
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if o, err := strconv.Atoi(o); err == nil && o >= 0 {
 			offset = o
 		}
 	}
@@ -151,10 +164,22 @@ func (h *Handler) ListTodos(w http.ResponseWriter, r *http.Request) {
 		Offset: offset,
 	}
 
-	// 调用数据库
-	todos, total, err := h.db.ListTodos(filter)
+	// 调用带 Context 的数据库方法
+	todos, total, err := h.db.ListTodosContext(ctx, filter)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, "GET_DATA_ERROR", "获取待办事项失败")
+		// 区分超时错误和其他错误
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("ListTodos timeout: %v", err)
+			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "查询超时，请稍后重试")
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			log.Printf("ListTodos canceled: %v", err)
+			// 客户端取消请求,不需要响应
+			return
+		}
+		log.Printf("Failed to list todos: %v", err)
+		h.sendError(w, http.StatusInternalServerError, "DATABASE_ERROR", "查询失败")
 		return
 	}
 
