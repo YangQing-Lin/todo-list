@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -432,4 +433,134 @@ func (db *DB) GetStats() (*TodoStats, error) {
 	}
 
 	return &stats, nil
+}
+
+// ListTodosContext 获取待办事项列表(支持 Context)
+func (db *DB) ListTodosContext(ctx context.Context, filter TodoFilter) ([]model.Todo, int, error) {
+	// 设置默认值
+	if filter.Sort == "" {
+		filter.Sort = "created_at"
+	}
+	if filter.Order == "" {
+		filter.Order = "DESC"
+	} else {
+		filter.Order = strings.ToUpper(filter.Order)
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 50
+	}
+	if filter.Status == "" {
+		filter.Status = "all"
+	}
+
+	baseQuery := "SELECT id, version, title, description, status, due_date, created_at, updated_at, completed_at FROM todos WHERE 1=1"
+	args := []interface{}{}
+
+	// 查询总数(带 Context)
+	countQuery := "SELECT COUNT(*) FROM todos WHERE 1=1"
+
+	// 动态添加查询条件
+	if filter.Status != "" && filter.Status != "all" {
+		whereClause := " AND status = ?"
+		baseQuery += whereClause
+		countQuery += whereClause
+		args = append(args, filter.Status)
+	}
+
+	if filter.Search != "" {
+		searchPattern := "%" + filter.Search + "%"
+		whereClause := " AND (title LIKE ? OR description LIKE ?)"
+		baseQuery += whereClause
+		countQuery += whereClause
+		args = append(args, searchPattern, searchPattern)
+	}
+
+	var total int
+	// 使用 QueryRowContext 而不是 QueryRow
+	err := db.conn.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询总数失败：%w", err)
+	}
+
+	// 添加排序和分页
+	allowedSortFields := map[string]bool{
+		"created_at": true,
+		"due_date":   true,
+		"status":     true,
+	}
+	allowedOrders := map[string]bool{
+		"ASC":  true,
+		"DESC": true,
+	}
+
+	if !allowedSortFields[filter.Sort] {
+		filter.Sort = "created_at"
+	}
+	if !allowedOrders[filter.Order] {
+		filter.Order = "DESC"
+	}
+
+	baseQuery += fmt.Sprintf(" ORDER BY %s %s LIMIT ? OFFSET ?", filter.Sort, filter.Order)
+	args = append(args, filter.Limit, filter.Offset)
+
+	// 执行查询(带 Context)
+	rows, err := db.conn.QueryContext(ctx, baseQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询失败：%w", err)
+	}
+	defer rows.Close()
+
+	var todos []model.Todo
+	for rows.Next() {
+		// 检查 Context 是否已取消(可选,SQLite 可能不会自动检查)
+		select {
+		case <-ctx.Done():
+			return nil, 0, ctx.Err()
+		default:
+		}
+
+		var todo model.Todo
+		var dueDate, completedAt sql.NullString
+
+		err := rows.Scan(
+			&todo.ID,
+			&todo.Version,
+			&todo.Title,
+			&todo.Description,
+			&todo.Status,
+			&dueDate,
+			&todo.CreatedAt,
+			&todo.UpdatedAt,
+			&completedAt,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("扫描失败：%w", err)
+		}
+
+		if dueDate.Valid {
+			if t, err := time.Parse(time.RFC3339, dueDate.String); err == nil {
+				todo.DueDate = &t
+			} else {
+				return nil, 0, fmt.Errorf("解析 due_date 失败：%w", err)
+			}
+		}
+
+		if completedAt.Valid {
+			if t, err := time.Parse(time.RFC3339, completedAt.String); err == nil {
+				todo.CompletedAt = &t
+			} else {
+				return nil, 0, fmt.Errorf("解析 completed_at 失败：%w", err)
+			}
+
+		}
+
+		todos = append(todos, todo)
+	}
+
+	// 检查迭代过程中的错误
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return todos, total, nil
 }
