@@ -592,6 +592,7 @@ func (db *DB) CreateTodoContext(ctx context.Context, todo *model.Todo) error {
 		todo.Status,
 		todo.DueDate,
 		todo.CreatedAt,
+		todo.UpdatedAt,
 		todo.Version,
 	)
 	if err != nil {
