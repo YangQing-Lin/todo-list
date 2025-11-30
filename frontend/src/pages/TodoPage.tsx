@@ -53,9 +53,11 @@ const TodoPage: React.FC = () => {
     }
   };
 
-  // 获取统计信息
-  const fetchStats = async () => {
-    setStatsLoading(true);
+  // 获取统计信息（silent=true 时不触发 loading 状态，避免闪烁）
+  const fetchStats = async (silent = false) => {
+    if (!silent) {
+      setStatsLoading(true);
+    }
     try {
       const response = await todoApi.getStats();
       if (response.success) {
@@ -66,7 +68,9 @@ const TodoPage: React.FC = () => {
     } catch (err: any) {
       console.error('获取统计信息失败:', extractErrorMessage(err, '获取统计信息失败'));
     } finally {
-      setStatsLoading(false);
+      if (!silent) {
+        setStatsLoading(false);
+      }
     }
   };
 
@@ -116,7 +120,7 @@ const TodoPage: React.FC = () => {
             return updated;
           });
           leaveTimersRef.current.delete(id);
-          fetchStats(); // 动画结束后刷新统计信息
+          fetchStats(true); // 静默刷新统计信息，避免闪烁
         }, LEAVE_ANIMATION_MS);
 
         leaveTimersRef.current.set(id, timerId);
@@ -157,7 +161,7 @@ const TodoPage: React.FC = () => {
           }
           return t;
         }));
-        fetchStats(); // 刷新统计信息
+        fetchStats(true); // 静默刷新统计信息
       } else {
         // 回滚
         setTodos(prev => prev.map(t => {
@@ -188,13 +192,13 @@ const TodoPage: React.FC = () => {
   // 创建后刷新（静默）
   const handleTodoCreated = () => {
     fetchTodos(true);
-    fetchStats();
+    fetchStats(true);
   };
 
   // 更新后刷新
   const handleTodoUpdated = (updatedTodo: Todo) => {
     setTodos(prev => prev.map(t => t.id === updatedTodo.id ? updatedTodo : t));
-    fetchStats();
+    fetchStats(true);
   };
 
   // 过滤Todos
