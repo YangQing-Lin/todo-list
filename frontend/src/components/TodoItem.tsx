@@ -9,9 +9,22 @@ interface TodoItemProps {
   onDelete: (id: number) => void;
   onUpdate?: (todo: Todo) => void;
   isLeaving?: boolean;
+  // 多选模式相关
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onSelect?: (id: number) => void;
 }
 
-const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onUpdate, isLeaving = false }) => {
+const TodoItem: React.FC<TodoItemProps> = ({
+  todo,
+  onToggle,
+  onDelete,
+  onUpdate,
+  isLeaving = false,
+  selectionMode = false,
+  isSelected = false,
+  onSelect,
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(todo.title);
   const [editDescription, setEditDescription] = useState(todo.description);
@@ -119,8 +132,9 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onUpdate,
 
   return (
     <div
-      className={`todo-item ${isCompleted ? 'completed' : ''} ${isLeaving ? 'is-leaving' : ''} ${isEditing ? 'editing' : ''}`}
+      className={`todo-item ${isCompleted ? 'completed' : ''} ${isLeaving ? 'is-leaving' : ''} ${isEditing ? 'editing' : ''} ${isSelected ? 'selected' : ''}`}
       style={{ backgroundColor: isCompleted ? undefined : backgroundColor }}
+      onClick={selectionMode ? () => onSelect?.(todo.id) : undefined}
     >
       {error && (
         <div className="todo-error">
@@ -131,13 +145,23 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onUpdate,
 
       <div className="todo-content">
         <div className="todo-left">
-          <input
-            type="checkbox"
-            className="todo-checkbox"
-            checked={isCompleted}
-            onChange={() => onToggle(todo.id)}
-            disabled={isEditing}
-          />
+          {selectionMode ? (
+            <input
+              type="checkbox"
+              className="todo-select-checkbox"
+              checked={isSelected}
+              onChange={() => onSelect?.(todo.id)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <input
+              type="checkbox"
+              className="todo-checkbox"
+              checked={isCompleted}
+              onChange={() => onToggle(todo.id)}
+              disabled={isEditing}
+            />
+          )}
 
           {isEditing ? (
             <div className="todo-edit-form" onKeyDown={handleKeyDown}>

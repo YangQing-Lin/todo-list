@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Todo, ApiResponse, CreateTodoRequest, TodoListResponse, TodoStats } from '../types';
+import { Todo, ApiResponse, CreateTodoRequest, TodoListResponse, TodoStats, BatchResult, ImportTodoItem, ImportResult } from '../types';
 
 // 创建axios实例
 const api = axios.create({
@@ -50,6 +50,38 @@ export const todoApi = {
   // 获取统计信息
   getStats: (): Promise<ApiResponse<TodoStats>> => {
     return api.get('/todos/stats');
+  },
+
+  // 批量完成待办事项
+  batchComplete: (ids: number[]): Promise<ApiResponse<BatchResult>> => {
+    return api.post('/todos/batch/complete', { ids });
+  },
+
+  // 批量删除待办事项
+  batchDelete: (ids: number[]): Promise<ApiResponse<BatchResult>> => {
+    return api.post('/todos/batch/delete', { ids });
+  },
+
+  // 导出待办事项
+  exportTodos: (format: 'json' | 'csv' = 'json'): void => {
+    // 直接触发浏览器下载
+    window.location.href = `/api/v1/todos/export?format=${format}`;
+  },
+
+  // 导入待办事项（JSON 请求体方式）
+  importTodos: (todos: ImportTodoItem[]): Promise<ApiResponse<ImportResult>> => {
+    return api.post('/todos/import', { todos });
+  },
+
+  // 导入待办事项（文件上传方式）
+  importTodosFile: (file: File): Promise<ApiResponse<ImportResult>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/todos/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
   },
 };
 

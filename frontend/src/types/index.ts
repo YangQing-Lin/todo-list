@@ -62,3 +62,36 @@ export interface TodoStats {
   today: number;
   this_week: number;
 }
+
+// 批量操作相关类型
+export interface BatchRequest {
+  ids: number[];
+}
+
+export interface BatchError {
+  id: number;
+  error: string;
+}
+
+export interface BatchResult {
+  success_count: number;
+  failed_count: number;
+  errors?: BatchError[];
+}
+
+// 导入相关类型
+export interface ImportTodoItem {
+  title: string;
+  description?: string;
+  status?: 'pending' | 'completed';
+  due_date?: string;
+}
+
+export interface ImportRequest {
+  todos: ImportTodoItem[];
+}
+
+export interface ImportResult {
+  imported: number;
+  total: number;
+}

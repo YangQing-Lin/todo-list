@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Todo, TodoStats } from '../types';
+import { Todo, TodoStats, BatchResult } from '../types';
 import { todoApi, extractErrorMessage } from '../services/api';
 import TodoItem from '../components/TodoItem';
 import TodoForm from '../components/TodoForm';
@@ -25,6 +25,23 @@ const TodoPage: React.FC = () => {
     todoId: number | null;
     todoTitle: string;
   }>({ isOpen: false, todoId: null, todoTitle: '' });
+
+  // 多选模式状态
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  // 批量操作确认弹窗状态
+  const [batchConfirm, setBatchConfirm] = useState<{
+    isOpen: boolean;
+    action: 'complete' | 'delete' | null;
+  }>({ isOpen: false, action: null });
+
+  // 批量操作进行中状态
+  const [batchLoading, setBatchLoading] = useState(false);
+
+  // 导入相关状态
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importLoading, setImportLoading] = useState(false);
 
   // 清理定时器
   useEffect(() => {
@@ -201,6 +218,182 @@ const TodoPage: React.FC = () => {
     fetchStats(true);
   };
 
+  // ========================================
+  // 多选模式相关函数
+  // ========================================
+
+  // 切换多选模式
+  const toggleSelectionMode = () => {
+    setSelectionMode(prev => !prev);
+    setSelectedIds(new Set());
+  };
+
+  // 选择/取消选择单个项目
+  const handleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const updated = new Set(prev);
+      if (updated.has(id)) {
+        updated.delete(id);
+      } else {
+        updated.add(id);
+      }
+      return updated;
+    });
+  };
+
+  // 全选/取消全选（当前过滤后的列表）
+  const handleSelectAll = () => {
+    const filteredIds = filteredTodos.map(t => t.id);
+    const allSelected = filteredIds.every(id => selectedIds.has(id));
+
+    if (allSelected) {
+      // 取消全选
+      setSelectedIds(prev => {
+        const updated = new Set(prev);
+        filteredIds.forEach(id => updated.delete(id));
+        return updated;
+      });
+    } else {
+      // 全选
+      setSelectedIds(prev => {
+        const updated = new Set(prev);
+        filteredIds.forEach(id => updated.add(id));
+        return updated;
+      });
+    }
+  };
+
+  // 请求批量操作（打开确认弹窗）
+  const requestBatchAction = (action: 'complete' | 'delete') => {
+    if (selectedIds.size === 0) return;
+    setBatchConfirm({ isOpen: true, action });
+  };
+
+  // 取消批量操作
+  const cancelBatchAction = () => {
+    setBatchConfirm({ isOpen: false, action: null });
+  };
+
+  // 确认批量完成
+  const confirmBatchComplete = async () => {
+    setBatchConfirm({ isOpen: false, action: null });
+    setBatchLoading(true);
+
+    try {
+      const ids = Array.from(selectedIds);
+      const response = await todoApi.batchComplete(ids);
+
+      if (response.success) {
+        const result = response.data;
+        // 显示结果消息
+        if (result.failed_count > 0) {
+          setError(`批量完成: ${result.success_count} 个成功，${result.failed_count} 个失败`);
+        }
+        // 刷新数据
+        await fetchTodos(true);
+        await fetchStats(true);
+        // 清空选择
+        setSelectedIds(new Set());
+        setSelectionMode(false);
+      } else {
+        setError(response.error?.message || '批量完成失败');
+      }
+    } catch (err: any) {
+      setError(extractErrorMessage(err, '批量完成失败'));
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  // 确认批量删除
+  const confirmBatchDelete = async () => {
+    setBatchConfirm({ isOpen: false, action: null });
+    setBatchLoading(true);
+
+    try {
+      const ids = Array.from(selectedIds);
+      const response = await todoApi.batchDelete(ids);
+
+      if (response.success) {
+        const result = response.data;
+        // 显示结果消息
+        if (result.failed_count > 0) {
+          setError(`批量删除: ${result.success_count} 个成功，${result.failed_count} 个失败`);
+        }
+        // 刷新数据
+        await fetchTodos(true);
+        await fetchStats(true);
+        // 清空选择
+        setSelectedIds(new Set());
+        setSelectionMode(false);
+      } else {
+        setError(response.error?.message || '批量删除失败');
+      }
+    } catch (err: any) {
+      setError(extractErrorMessage(err, '批量删除失败'));
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  // 处理批量操作确认
+  const handleBatchConfirm = () => {
+    if (batchConfirm.action === 'complete') {
+      confirmBatchComplete();
+    } else if (batchConfirm.action === 'delete') {
+      confirmBatchDelete();
+    }
+  };
+
+  // ========================================
+  // 导入导出相关函数
+  // ========================================
+
+  // 导出 JSON
+  const handleExportJSON = () => {
+    todoApi.exportTodos('json');
+  };
+
+  // 导出 CSV
+  const handleExportCSV = () => {
+    todoApi.exportTodos('csv');
+  };
+
+  // 触发文件选择
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  // 处理文件导入
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportLoading(true);
+
+    try {
+      const response = await todoApi.importTodosFile(file);
+
+      if (response.success) {
+        const result = response.data;
+        setError(`成功导入 ${result.imported} 条待办事项`);
+        // 刷新数据
+        await fetchTodos(true);
+        await fetchStats(true);
+      } else {
+        setError(response.error?.message || '导入失败');
+      }
+    } catch (err: any) {
+      setError(extractErrorMessage(err, '导入失败'));
+    } finally {
+      setImportLoading(false);
+      // 重置 input，允许再次选择同一文件
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   // 过滤Todos
   const filteredTodos = todos.filter(todo => {
     if (filter === 'pending') return todo.status === 'pending';
@@ -226,6 +419,85 @@ const TodoPage: React.FC = () => {
         <header className="page-header">
           <h1>我的待办事项</h1>
         </header>
+
+        {/* 工具栏 */}
+        <div className="toolbar">
+          <div className="toolbar-left">
+            <button
+              className={`btn btn-sm ${selectionMode ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={toggleSelectionMode}
+            >
+              {selectionMode ? '退出多选' : '多选模式'}
+            </button>
+
+            {selectionMode && (
+              <>
+                <button
+                  className="btn btn-sm btn-secondary"
+                  onClick={handleSelectAll}
+                  disabled={filteredTodos.length === 0}
+                >
+                  {filteredTodos.length > 0 && filteredTodos.every(t => selectedIds.has(t.id))
+                    ? '取消全选'
+                    : '全选'}
+                </button>
+                <span className="selection-count">
+                  已选 {selectedIds.size} 项
+                </span>
+              </>
+            )}
+          </div>
+
+          <div className="toolbar-right">
+            {selectionMode ? (
+              <>
+                <button
+                  className="btn btn-sm btn-success"
+                  onClick={() => requestBatchAction('complete')}
+                  disabled={selectedIds.size === 0 || batchLoading}
+                >
+                  {batchLoading ? '处理中...' : '批量完成'}
+                </button>
+                <button
+                  className="btn btn-sm btn-danger"
+                  onClick={() => requestBatchAction('delete')}
+                  disabled={selectedIds.size === 0 || batchLoading}
+                >
+                  {batchLoading ? '处理中...' : '批量删除'}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="btn btn-sm btn-secondary"
+                  onClick={handleExportJSON}
+                >
+                  导出 JSON
+                </button>
+                <button
+                  className="btn btn-sm btn-secondary"
+                  onClick={handleExportCSV}
+                >
+                  导出 CSV
+                </button>
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={handleImportClick}
+                  disabled={importLoading}
+                >
+                  {importLoading ? '导入中...' : '导入'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,.csv"
+                  onChange={handleFileImport}
+                  style={{ display: 'none' }}
+                />
+              </>
+            )}
+          </div>
+        </div>
 
         {error && (
           <div className="error" onClick={() => setError('')}>
@@ -284,6 +556,9 @@ const TodoPage: React.FC = () => {
                     onDelete={requestDelete}
                     onUpdate={handleTodoUpdated}
                     isLeaving={leavingIds.has(todo.id)}
+                    selectionMode={selectionMode}
+                    isSelected={selectedIds.has(todo.id)}
+                    onSelect={handleSelect}
                   />
                 ))
               )}
@@ -301,6 +576,22 @@ const TodoPage: React.FC = () => {
         variant="danger"
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
+      />
+
+      {/* 批量操作确认弹窗 */}
+      <ConfirmDialog
+        isOpen={batchConfirm.isOpen}
+        title={batchConfirm.action === 'delete' ? '批量删除确认' : '批量完成确认'}
+        message={
+          batchConfirm.action === 'delete'
+            ? `确定要删除选中的 ${selectedIds.size} 个待办事项吗？此操作无法撤销。`
+            : `确定要将选中的 ${selectedIds.size} 个待办事项标记为已完成吗？`
+        }
+        confirmText={batchConfirm.action === 'delete' ? '批量删除' : '批量完成'}
+        cancelText="取消"
+        variant={batchConfirm.action === 'delete' ? 'danger' : 'info'}
+        onConfirm={handleBatchConfirm}
+        onCancel={cancelBatchAction}
       />
     </div>
   );

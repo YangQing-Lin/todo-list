@@ -61,6 +61,41 @@
 }
 
 /* ========================================
+   Toolbar Section
+   ======================================== */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  background: var(--neo-cyan);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  flex-wrap: wrap;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.selection-count {
+  font-weight: 900;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 16px;
+  background: var(--white);
+  border: 3px solid var(--black);
+  box-shadow: 3px 3px 0 var(--black);
+}
+
+/* ========================================
    Filter Section
    ======================================== */
 .todo-filters {
@@ -207,5 +242,20 @@
 
   .filter-btn {
     flex: 1 1 100%;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    justify-content: center;
+  }
+
+  .toolbar .btn-sm {
+    flex: 1;
+    min-width: 0;
   }
 }
