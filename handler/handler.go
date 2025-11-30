@@ -48,11 +48,6 @@ type Handler struct {
 	db *database.DB
 }
 
-// BatchRequest 批量操作请求
-type BatchRequest struct {
-	IDs []int `json:"ids"`
-}
-
 // 超时配置
 const (
 	DefaultTimeout = 10 * time.Second // 默认超时
@@ -477,6 +472,11 @@ func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, http.StatusOK, response)
 }
 
+// BatchRequest 批量操作请求
+type BatchRequest struct {
+	IDs []int `json:"ids"`
+}
+
 // BatchCompleteTodos 批量完成待办事项
 func (h *Handler) BatchCompleteTodos(w http.ResponseWriter, r *http.Request) {
 	// 创建带超时的 Context
@@ -561,4 +561,107 @@ func (h *Handler) BatchDeleteTodos(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Message: fmt.Sprintf("成功删除 %d 个待办事项", len(req.IDs)),
 	})
+}
+
+// BatchCompleteTodosPartial 批量完成待办事项（部分成功策略）
+func (h *Handler) BatchCompleteTodosPartial(w http.ResponseWriter, r *http.Request) {
+	// 创建带超时的 Context
+	ctx, cancel := context.WithTimeout(r.Context(), BatchTimeout)
+	defer cancel()
+
+	defer r.Body.Close()
+
+	var req BatchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "INVALID_JSON", fmt.Sprintf("JSON 解析失败: %v", err))
+		return
+	}
+
+	// 验证请求
+	if len(req.IDs) == 0 {
+		h.sendError(w, http.StatusBadRequest, "VALIDATION_ERROR", "IDs 不能为空")
+		return
+	}
+
+	// 批量大小限制（Handler 层也做校验，双重保护）
+	if len(req.IDs) > 100 {
+		h.sendError(w, http.StatusBadRequest, "VALIDATION_ERROR", fmt.Sprintf("批量操作最多支持 100 个 ID，当前: %d", len(req.IDs)))
+		return
+	}
+
+	// 执行批量操作（使用部分成功策略的函数）
+	result, err := h.db.BatchCompleteTodosPartialContext(ctx, req.IDs)
+	if err != nil {
+		// 区分超时错误和其他错误
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("BatchCompletePartial timeout: %v", err)
+			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "批量操作超时，请稍后重试")
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			log.Printf("BatchCompletePartial canceled: %v", err)
+			return // 客户端取消，不响应
+		}
+		log.Printf("Failed to batch complete todos: %v", err)
+		h.sendError(w, http.StatusInternalServerError, "BATCH_OPERATION_ERROR", err.Error())
+		return
+	}
+
+	response := Response{
+		Success: true,
+		Data:    result,
+		Message: "批量完成操作完成",
+	}
+	h.sendJSON(w, http.StatusOK, response)
+}
+
+// BatchDeleteTodosPartial 批量删除待办事项（部分成功策略）
+func (h *Handler) BatchDeleteTodosPartial(w http.ResponseWriter, r *http.Request) {
+	// 创建带超时的 Context
+	ctx, cancel := context.WithTimeout(r.Context(), BatchTimeout)
+	defer cancel()
+
+	defer r.Body.Close()
+
+	var req BatchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "INVALID_JSON", fmt.Sprintf("JSON 解析失败: %v", err))
+		return
+	}
+
+	// 验证请求
+	if len(req.IDs) == 0 {
+		h.sendError(w, http.StatusBadRequest, "VALIDATION_ERROR", "IDs 不能为空")
+		return
+	}
+
+	// 批量大小限制
+	if len(req.IDs) > 100 {
+		h.sendError(w, http.StatusBadRequest, "VALIDATION_ERROR", fmt.Sprintf("批量操作最多支持 100 个 ID，当前: %d", len(req.IDs)))
+		return
+	}
+
+	// 执行批量操作
+	result, err := h.db.BatchDeleteTodosPartialContext(ctx, req.IDs)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("BatchDeletePartial timeout: %v", err)
+			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "批量操作超时，请稍后重试")
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			log.Printf("BatchDeletePartial canceled: %v", err)
+			return
+		}
+		log.Printf("Failed to batch delete todos: %v", err)
+		h.sendError(w, http.StatusInternalServerError, "BATCH_OPERATION_ERROR", err.Error())
+		return
+	}
+
+	response := Response{
+		Success: true,
+		Data:    result,
+		Message: "批量删除操作完成",
+	}
+	h.sendJSON(w, http.StatusOK, response)
 }

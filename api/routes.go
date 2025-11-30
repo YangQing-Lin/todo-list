@@ -62,9 +62,12 @@ func SetupRoutes(h *handler.Handler) *http.ServeMux {
 
 		mux.HandleFunc("GET "+base+"/stats", withMiddlewares(h.GetStats))
 
-		// 批量操作的路由
-		mux.HandleFunc("POST "+base+"/batch/complete", withMiddlewares(h.BatchCompleteTodos))
-		mux.HandleFunc("POST "+base+"/batch/delete", withMiddlewares(h.BatchDeleteTodos))
+		// 批量操作端点（部分成功策略，替换教学-5的全有或全无策略）
+		mux.HandleFunc("POST "+base+"/batch/complete", withMiddlewares(h.BatchCompleteTodosPartial))
+		mux.HandleFunc("POST "+base+"/batch/delete", withMiddlewares(h.BatchDeleteTodosPartial))
+		// 处理跨域的预请求，默认返回 200
+		mux.HandleFunc("OPTIONS "+base+"/batch/complete", withMiddlewares(optionsHandler))
+		mux.HandleFunc("OPTIONS "+base+"/batch/delete", withMiddlewares(optionsHandler))
 
 		mux.HandleFunc("PUT "+base+"/{id}", withMiddlewares(h.UpdateTodo))
 		mux.HandleFunc("DELETE "+base+"/{id}", withMiddlewares(h.DeleteTodo))

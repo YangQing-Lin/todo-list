@@ -867,3 +867,198 @@ func (db *DB) BatchDeleteTodosContext(ctx context.Context, ids []int) (err error
 
 	return nil
 }
+
+// BatchError 批量操作中的单个错误
+type BatchError struct {
+	ID    int    `json:"id"`
+	Error string `json:"error"`
+}
+
+// BatchResult 批量操作结果
+type BatchResult struct {
+	SuccessCount int          `json:"success_count"`
+	FailedCount  int          `json:"failed_count"`
+	Errors       []BatchError `json:"errors,omitempty"`
+}
+
+// BatchCompleteTodosPartialContext 批量完成待办事项（部分成功策略）
+// 与教学-5的 BatchCompleteTodosContext（全有或全无）不同，
+// 本方法允许部分成功，记录失败的 ID 并返回给调用者。
+func (db *DB) BatchCompleteTodosPartialContext(ctx context.Context, ids []int) (result *BatchResult, err error) {
+	if len(ids) == 0 {
+		return &BatchResult{}, nil
+	}
+
+	// 限制批量大小
+	if len(ids) > 100 {
+		return nil, fmt.Errorf("批量操作最多支持 100 个 ID，当前：%d", len(ids))
+	}
+
+	// 使用 BeginTx 支持 Context
+	tx, err := db.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	// 使用 defer 确保事务被处理
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("回滚失败: %v (原始错误: %v)", rbErr, err)
+			}
+		}
+	}()
+
+	result = &BatchResult{
+		Errors: make([]BatchError, 0),
+	}
+
+	// 预先声明变量，避免在循环中使用 := 导致变量遮蔽
+	var res sql.Result
+	var rowsAffected int64
+
+	for _, id := range ids {
+		// 检查 Context 是否已取消
+		select {
+		case <-ctx.Done():
+			err = ctx.Err() // 赋值给命名返回值，触发 defer 回滚
+			return nil, err
+		default:
+		}
+
+		// 在 Go 层生成时间戳（统一使用 UTC）
+		now := time.Now().UTC()
+
+		res, err = tx.ExecContext(ctx, `
+			UPDATE todos
+			SET status = 'completed',
+			    completed_at = ?,
+			    updated_at = ?
+			WHERE id = ? AND status = 'pending'
+		`, now, now, id)
+
+		if err != nil {
+			result.FailedCount++
+			result.Errors = append(result.Errors, BatchError{
+				ID:    id,
+				Error: err.Error(),
+			})
+			err = nil // 重置 err，避免触发 defer 回滚（部分成功策略）
+			continue
+		}
+
+		// 检查是否真的更新了（可能 ID 不存在或已经 completed）
+		rowsAffected, err = res.RowsAffected()
+		if err != nil {
+			result.FailedCount++
+			result.Errors = append(result.Errors, BatchError{
+				ID:    id,
+				Error: fmt.Sprintf("获取受影响行数失败：%v", err),
+			})
+			err = nil // 重置 err
+			continue
+		}
+		if rowsAffected == 0 {
+			result.FailedCount++
+			result.Errors = append(result.Errors, BatchError{
+				ID:    id,
+				Error: "待办事项不存在或已完成",
+			})
+		} else {
+			result.SuccessCount++
+		}
+	}
+
+	// 提交事务（即使有部分失败，成功的也要提交）
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return result, nil
+}
+
+// BatchDeleteTodosPartialContext 批量删除待办事项（部分成功策略）
+// 注意：使用命名返回值 (err error)，让 defer 能访问到错误
+func (db *DB) BatchDeleteTodosPartialContext(ctx context.Context, ids []int) (result *BatchResult, err error) {
+	if len(ids) == 0 {
+		return &BatchResult{}, nil
+	}
+
+	// 限制批量大小
+	if len(ids) > 100 {
+		return nil, fmt.Errorf("批量操作最多支持 100 个 ID，当前: %d", len(ids))
+	}
+
+	// 使用 BeginTx 支持 Context
+	tx, err := db.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	// 使用 defer 确保事务被处理
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("回滚失败: %v (原始错误: %v)", rbErr, err)
+			}
+		}
+	}()
+
+	result = &BatchResult{
+		Errors: make([]BatchError, 0),
+	}
+
+	// 预先声明变量，避免在循环中使用 := 导致变量遮蔽
+	var res sql.Result
+	var rowsAffected int64
+
+	for _, id := range ids {
+		// 检查 Context 是否已取消
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			return nil, err
+		default:
+		}
+
+		res, err = tx.ExecContext(ctx, `DELETE FROM todos WHERE id = ?`, id)
+
+		if err != nil {
+			result.FailedCount++
+			result.Errors = append(result.Errors, BatchError{
+				ID:    id,
+				Error: err.Error(),
+			})
+			err = nil // 重置 err，避免触发 defer 回滚（部分成功策略）
+			continue
+		}
+
+		// 检查是否真的删除了
+		rowsAffected, err = res.RowsAffected()
+		if err != nil {
+			result.FailedCount++
+			result.Errors = append(result.Errors, BatchError{
+				ID:    id,
+				Error: fmt.Sprintf("获取受影响行数失败: %v", err),
+			})
+			err = nil // 重置 err
+			continue
+		}
+		if rowsAffected == 0 {
+			result.FailedCount++
+			result.Errors = append(result.Errors, BatchError{
+				ID:    id,
+				Error: "待办事项不存在",
+			})
+		} else {
+			result.SuccessCount++
+		}
+	}
+
+	// 提交事务
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return result, nil
+}
