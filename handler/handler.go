@@ -48,6 +48,11 @@ type Handler struct {
 	db *database.DB
 }
 
+// BatchRequest 批量操作请求
+type BatchRequest struct {
+	IDs []int `json:"ids"`
+}
+
 // 超时配置
 const (
 	DefaultTimeout = 10 * time.Second // 默认超时
@@ -56,6 +61,7 @@ const (
 	UpdateTimeout  = 3 * time.Second  // 更新超时
 	DeleteTimeout  = 2 * time.Second  // 删除超时
 	StatsTimeout   = 5 * time.Second  // 统计查询超时
+	BatchTimeout   = 10 * time.Second // 批量操作超时
 )
 
 // NewHandler 创建新的处理器
@@ -469,4 +475,90 @@ func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.sendJSON(w, http.StatusOK, response)
+}
+
+// BatchCompleteTodos 批量完成待办事项
+func (h *Handler) BatchCompleteTodos(w http.ResponseWriter, r *http.Request) {
+	// 创建带超时的 Context
+	ctx, cancel := context.WithTimeout(r.Context(), BatchTimeout)
+	defer cancel()
+
+	defer r.Body.Close()
+
+	var req BatchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "INVALID_JSON", "请求格式错误")
+		return
+	}
+
+	// 验证请求
+	if len(req.IDs) == 0 {
+		h.sendError(w, http.StatusBadRequest, "VALIDATION_ERROR", "IDs不能为空")
+		return
+	}
+
+	// 执行批量操作
+	if err := h.db.BatchCompleteTodosContext(ctx, req.IDs); err != nil {
+		// 区分超时错误和其他错误
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("BatchComplete timeout: %v", err)
+			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "批量操作超时，请稍后重试")
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			log.Printf("BatchComplete canceled: %v", err)
+			return // 客户端取消，不响应
+		}
+		log.Printf("批量完成失败：%v", err)
+		h.sendError(w, http.StatusInternalServerError, "BATCH_ERROR", err.Error())
+		return
+	}
+
+	h.sendJSON(w, http.StatusOK, Response{
+		Success: true,
+		Message: fmt.Sprintf("成功完成 %d 个待办事项", len(req.IDs)),
+	})
+}
+
+// BatchDeleteTodos 批量删除待办事项
+func (h *Handler) BatchDeleteTodos(w http.ResponseWriter, r *http.Request) {
+	// 创建带超时的 context
+	ctx, cancel := context.WithTimeout(r.Context(), BatchTimeout)
+	defer cancel()
+
+	defer r.Body.Close()
+
+	var req BatchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "INVALID_JSON", "请求格式错误")
+		return
+	}
+
+	// 验证请求
+	if len(req.IDs) == 0 {
+		h.sendError(w, http.StatusBadRequest, "VALIDATION_ERROR", "IDs不能为空")
+		return
+	}
+
+	// 执行批量操作
+	if err := h.db.BatchDeleteTodosContext(ctx, req.IDs); err != nil {
+		// 区分超时错误和其他错误
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("BatchDelete timeout: %v", err)
+			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "批量操作超时，请稍后重试")
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			log.Printf("BatchDelete canceled: %v", err)
+			return // 客户端取消，不响应
+		}
+		log.Printf("批量删除失败：%v", err)
+		h.sendError(w, http.StatusInternalServerError, "BATCH_ERROR", err.Error())
+		return
+	}
+
+	h.sendJSON(w, http.StatusOK, Response{
+		Success: true,
+		Message: fmt.Sprintf("成功删除 %d 个待办事项", len(req.IDs)),
+	})
 }

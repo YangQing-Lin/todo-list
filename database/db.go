@@ -674,7 +674,7 @@ func (db *DB) DeleteTodoContext(ctx context.Context, id int) error {
 func (db *DB) GetStatsContext(ctx context.Context) (*TodoStats, error) {
 	now := time.Now().UTC()
 	today := now.Format("2006-01-02")
-	weekLater := now.AddDate(0, 0, 7).Format("2006-0102")
+	weekLater := now.AddDate(0, 0, 7).Format("2006-01-02")
 
 	query := `
 		SELECT
@@ -721,4 +721,149 @@ func (db *DB) GetStatsContext(ctx context.Context) (*TodoStats, error) {
 	}
 
 	return &stats, nil
+}
+
+// BatchCompleteTodosContext 批量完成待办事项（全有或全无）
+// 注意：使用命名返回值 (err error)，让 defer 能访问到错误
+func (db *DB) BatchCompleteTodosContext(ctx context.Context, ids []int) (err error) {
+	// 验证输入
+	if len(ids) == 0 {
+		return nil
+	}
+
+	if len(ids) > 100 {
+		return fmt.Errorf("批量操作最多支持100个项目，当前：%d", len(ids))
+	}
+
+	// （使用 BeginTx 支持 Context）
+	tx, err := db.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("开启事务失败：%w", err)
+	}
+
+	// 使用 defer 确保事务被处理
+	defer func() {
+		if err != nil {
+			// 回滚时也记录错误
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("事务回滚失败：%v（原始错误：%v）", rbErr, err)
+			}
+			log.Println("事务回滚成功")
+		}
+	}()
+
+	// 预先声明变量，避免在循环中使用 := 导致变量遮蔽
+	var result sql.Result
+	var rows int64
+	now := time.Now().UTC()
+
+	// 批量更新
+	for _, id := range ids {
+		// 检查 Context 是否已取消
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			return err
+		default:
+		}
+
+		// 这里不能使用 := 来接收返回内容
+		// 因为 err := 会遮蔽循环外部的 err 参数，导致 defer func() 无法正常回滚
+		result, err = tx.ExecContext(ctx, `
+            UPDATE todos
+            SET status = 'completed',
+                completed_at = ?,
+                updated_at = ?
+            WHERE id = ? AND status = 'pending'
+		`, now, now, id)
+
+		if err != nil {
+			return fmt.Errorf("更新 ID %d 失败：%w", id, err)
+		}
+
+		// 检查是否真的更新了
+		// 同样不能使用 :=
+		rows, err = result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("获取影响行数失败：%w", err)
+		}
+
+		if rows == 0 {
+			return fmt.Errorf("待办事项 %d 不存在或已完成", id)
+		}
+	}
+
+	// 提交事务
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("提交事务失败：%w", err)
+	}
+
+	return nil
+}
+
+// BatchDeleteTodosContext 批量删除待办事项（全有或全无）
+// 注意：使用命名返回值 (err error)，让 defer 能访问到错误
+func (db *DB) BatchDeleteTodosContext(ctx context.Context, ids []int) (err error) {
+	// 验证输入
+	if len(ids) == 0 {
+		return nil
+	}
+
+	if len(ids) > 100 {
+		return fmt.Errorf("批量操作最多支持100个项目，当前：%d", len(ids))
+	}
+
+	// 开启事务（使用 BeginTx 支持 Context）
+	tx, err := db.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("开启事务失败：%w", err)
+	}
+
+	// 使用 defer 确保事务被处理
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("回滚失败：%v（原始错误：%v）", rbErr, err)
+			}
+		}
+	}()
+
+	// 预先声明变量，避免在循环中使用 := 导致变量遮蔽
+	var result sql.Result
+	var rows int64
+
+	// 批量删除
+	for _, id := range ids {
+		// 检查 Context 是否已取消
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			return err
+		default:
+		}
+
+		result, err = tx.ExecContext(ctx, "DELETE FROM todos WHERE id = ?", id)
+
+		if err != nil {
+			return fmt.Errorf("删除 ID %d 失败：%w", id, err)
+		}
+
+		// 检查是否真的删除了
+		rows, err = result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("获取影响行数失败：%w", err)
+		}
+
+		if rows == 0 {
+			err = fmt.Errorf("待办事项 %d 不存在", id)
+			return err
+		}
+	}
+
+	// 提交事务
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("提交事务失败：%w", err)
+	}
+
+	return nil
 }
