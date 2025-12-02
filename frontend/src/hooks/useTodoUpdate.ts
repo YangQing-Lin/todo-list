@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Todo } from '../types';
 import { todoApi } from '../services/api';
 
@@ -63,7 +62,7 @@ export function useTodoUpdate(options: UseTodoUpdateOptions = {}) {
     } catch (err: any) {
       // 检查是否是版本冲突
       if (err.response?.status === 409) {
-        await handleVersionConflict(id, currentTodo, changes);
+        await handleVersionConflict(id, changes);
         return false;
       } else {
         // 其他错误：保留草稿
@@ -77,7 +76,6 @@ export function useTodoUpdate(options: UseTodoUpdateOptions = {}) {
   // 处理版本冲突
   const handleVersionConflict = async (
     id: number,
-    localTodo: Todo,
     localChanges: Partial<Todo>
   ) => {
     try {

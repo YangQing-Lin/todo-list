@@ -3,17 +3,17 @@
    ======================================== */
 
 :root {
-  /* Neo-Brutalism Color Palette - Bold & Vibrant */
-  --neo-yellow: #FFEE00;
-  --neo-pink: #FF69B4;
-  --neo-cyan: #00FFFF;
-  --neo-lime: #BFFF00;
-  --neo-orange: #FF6B35;
-  --neo-purple: #A855F7;
-  --neo-blue: #3B82F6;
-  --neo-red: #FF0054;
-  --neo-mint: #00FF9F;
-  --neo-peach: #FFBE98;
+  /* Neo-Brutalism Color Palette - Bold but softened */
+  --neo-yellow: #f3de65;
+  --neo-pink: #ff8cba;
+  --neo-cyan: #4ac7d4;
+  --neo-lime: #b5e06b;
+  --neo-orange: #ff9a5c;
+  --neo-purple: #b28cff;
+  --neo-blue: #6aa8ff;
+  --neo-red: #ff4d78;
+  --neo-mint: #55e4b7;
+  --neo-peach: #ffc6a4;
 
   /* Core Colors */
   --primary-color: var(--neo-cyan);
@@ -24,12 +24,12 @@
   --accent-color: var(--neo-pink);
 
   /* Neutral Colors */
-  --black: #000000;
-  --white: #FFFFFF;
-  --off-white: #FFFEF0;
-  --text-color: var(--black);
-  --text-secondary: #1a1a1a;
-  --border-color: var(--black);
+  --black: #0f0f10;
+  --white: #ffffff;
+  --off-white: #f7f3ea;
+  --text-color: #0f0f10;
+  --text-secondary: #2b2b30;
+  --border-color: #121214;
   --background-color: var(--off-white);
   --card-background: var(--white);
 
@@ -39,15 +39,18 @@
   --border-thick: 5px;
   --border-width: var(--border-thick);
 
-  /* Shadows - Hard edges only! */
-  --shadow-sm: 3px 3px 0 var(--black);
-  --shadow-md: 5px 5px 0 var(--black);
-  --shadow-lg: 8px 8px 0 var(--black);
-  --shadow-xl: 12px 12px 0 var(--black);
+  /* Shadows - offset, slightly softened */
+  --shadow-color: rgba(15, 15, 16, 0.18);
+  --shadow-sm: 2px 2px 0 var(--shadow-color);
+  --shadow-md: 4px 4px 0 var(--shadow-color);
+  --shadow-lg: 7px 7px 0 rgba(18, 18, 20, 0.2);
+  --shadow-xl: 11px 11px 0 rgba(18, 18, 20, 0.24);
 
-  /* No border radius - pure brutalism */
+  /* Rounded edges */
   --radius-none: 0;
-  --radius-sm: 0;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
 
   /* Animation Curves - Snappy & Playful */
   --ease-snap: cubic-bezier(0.2, 0, 0, 1);
@@ -61,9 +64,22 @@
   --transition-slow: 300ms var(--ease-out);
   --transition: transform var(--transition-normal), box-shadow var(--transition-normal), background-color var(--transition-fast);
 
+  /* Motion Tokens */
+  --motion-duration-fast: 180ms;
+  --motion-duration: 300ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-stagger: 80ms;
+
   /* Typography */
   --font-primary: 'Space Grotesk', 'Arial Black', 'Arial Bold', system-ui, sans-serif;
   --font-mono: 'Space Mono', 'Courier New', monospace;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: clamp(24px, 2.6vw, 30px);
+  --text-xxl: clamp(32px, 4vw, 42px);
+  --line-height-tight: 1.2;
+  --line-height-base: 1.6;
 }
 
 /* Reset */
@@ -87,8 +103,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--background-color);
   color: var(--text-color);
-  line-height: 1.5;
-  font-weight: 700;
+  line-height: var(--line-height-base);
+  font-weight: 600;
   min-height: 100vh;
 }
 
@@ -100,7 +116,33 @@ body {
 .container {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 24px;
+  padding: clamp(16px, 3vw, 32px);
+}
+
+h1, h2, h3 {
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: var(--text-xxl);
+  font-weight: 900;
+}
+
+h2 {
+  font-size: var(--text-xl);
+  font-weight: 850;
+}
+
+h3 {
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+p {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: var(--line-height-base);
 }
 
 /* ========================================
@@ -114,6 +156,7 @@ body {
   margin-bottom: 24px;
   transition: var(--transition);
   position: relative;
+  border-radius: var(--radius-lg);
 }
 
 .card:hover {
@@ -132,6 +175,7 @@ body {
   border: var(--border-medium) solid var(--border-color);
   opacity: 0;
   transition: opacity var(--transition-fast);
+  border-radius: var(--radius-sm);
 }
 
 .card:hover::before {
@@ -160,6 +204,7 @@ body {
   box-shadow: var(--shadow-md);
   position: relative;
   user-select: none;
+  border-radius: var(--radius-md);
 }
 
 .btn:hover:not(:disabled) {
@@ -208,13 +253,14 @@ body {
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #ff1a6a;
+  background: #ff6f8d;
 }
 
 .btn-sm {
   padding: 8px 16px;
   font-size: 13px;
   box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
 }
 
 .btn-sm:hover:not(:disabled) {
@@ -235,6 +281,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-size: 14px;
+  color: var(--text-secondary);
 }
 
 .form-input,
@@ -248,13 +295,14 @@ body {
   font-weight: 700;
   transition: var(--transition);
   box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
 }
 
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: var(--neo-cyan);
-  box-shadow: 6px 6px 0 var(--neo-cyan);
+  border-color: var(--primary-color);
+  box-shadow: 6px 6px 0 rgba(74, 199, 212, 0.3);
   transform: translate(-2px, -2px);
 }
 
@@ -303,6 +351,7 @@ body {
   position: relative;
   cursor: pointer;
   transition: var(--transition);
+  border-radius: var(--radius-md);
 }
 
 .error:hover {
@@ -332,22 +381,38 @@ body {
 
 .empty-state {
   text-align: center;
-  padding: 80px 24px;
+  padding: clamp(48px, 8vw, 80px) clamp(18px, 4vw, 24px);
   background: var(--white);
   border: var(--border-width) solid var(--border-color);
   box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
 }
 
 .empty-state h3 {
-  font-size: 28px;
+  font-size: var(--text-xl);
   font-weight: 900;
   text-transform: uppercase;
   margin-bottom: 12px;
 }
 
 .empty-state p {
-  font-size: 16px;
+  font-size: var(--text-base);
   color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 20px;
+  }
+
+  .btn {
+    padding: 11px 18px;
+    font-size: 15px;
+  }
+
+  h1 {
+    font-size: clamp(26px, 7vw, 34px);
+  }
 }
 
 /* ========================================

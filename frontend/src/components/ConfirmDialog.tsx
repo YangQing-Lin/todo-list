@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import '../styles/ConfirmDialog.css';
 
 interface ConfirmDialogProps {
@@ -46,41 +47,54 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     }
   }, [isOpen, onCancel]);
 
-  if (!isOpen) return null;
-
   return (
-    <div className="confirm-overlay" onClick={onCancel}>
-      <div
-        className={`confirm-dialog confirm-${variant}`}
-        ref={dialogRef}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirm-title"
-      >
-        <div className="confirm-header">
-          <h3 id="confirm-title">{title}</h3>
-        </div>
-        <div className="confirm-body">
-          <p>{message}</p>
-        </div>
-        <div className="confirm-actions">
-          <button
-            className="btn btn-cancel"
-            onClick={onCancel}
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="confirm-overlay"
+          onClick={onCancel}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+        >
+          <motion.div
+            className={`confirm-dialog confirm-${variant}`}
+            ref={dialogRef}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-title"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 22 }}
           >
-            {cancelText}
-          </button>
-          <button
-            ref={confirmBtnRef}
-            className={`btn btn-confirm btn-${variant}`}
-            onClick={onConfirm}
-          >
-            {confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
+            <div className="confirm-header">
+              <h3 id="confirm-title">{title}</h3>
+            </div>
+            <div className="confirm-body">
+              <p>{message}</p>
+            </div>
+            <div className="confirm-actions">
+              <button
+                className="btn btn-cancel"
+                onClick={onCancel}
+              >
+                {cancelText}
+              </button>
+              <button
+                ref={confirmBtnRef}
+                className={`btn btn-confirm btn-${variant}`}
+                onClick={onConfirm}
+              >
+                {confirmText}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

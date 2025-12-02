@@ -95,6 +95,83 @@
   box-shadow: 3px 3px 0 var(--black);
 }
 
+/* Toolbar Buttons */
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+  transition: transform 160ms ease, box-shadow 180ms ease, background-color 180ms ease, filter 180ms ease;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.toolbar-btn:active:not(:disabled) {
+  transform: translate(1px, 1px);
+}
+
+.toolbar-btn .btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 2px;
+  border: 2px solid var(--black);
+  background: var(--white);
+  box-shadow: 2px 2px 0 var(--black);
+  font-size: 12px;
+}
+
+.export-btn:hover .toolbar-icon,
+.import-btn:hover .toolbar-icon {
+  animation: toolbarIconShake 0.6s ease-in-out;
+  filter: brightness(1.08);
+}
+
+.toggle-select-btn {
+  box-shadow: var(--shadow-md);
+}
+
+.toggle-select-btn.is-active {
+  background: var(--neo-yellow);
+  color: var(--black);
+  box-shadow: 8px 8px 0 var(--black);
+  transform: translateY(-2px);
+}
+
+.toggle-select-btn.is-active .toolbar-icon {
+  background: var(--neo-orange);
+  color: var(--black);
+  animation: pulseShadow 1.3s ease-in-out infinite;
+}
+
+.batch-action-btn.is-loading,
+.import-btn.is-loading {
+  cursor: progress;
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.12), var(--shadow-sm);
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid rgba(0, 0, 0, 0.2);
+  border-top-color: var(--black);
+  display: inline-block;
+  animation: spin 0.85s linear infinite;
+}
+
 /* ========================================
    Filter Section
    ======================================== */
@@ -127,7 +204,11 @@
   border: 4px solid var(--border-color);
   background: var(--white);
   cursor: pointer;
-  transition: var(--transition);
+  transition:
+    transform var(--motion-duration) var(--motion-ease),
+    box-shadow var(--motion-duration) var(--motion-ease),
+    background-color var(--transition-fast),
+    color var(--transition-fast);
   font-family: inherit;
   font-size: 14px;
   font-weight: 900;
@@ -136,6 +217,7 @@
   box-shadow: var(--shadow-md);
   position: relative;
   overflow: hidden;
+  will-change: transform, box-shadow;
 }
 
 .filter-btn::before {
@@ -155,6 +237,10 @@
   box-shadow: var(--shadow-lg);
 }
 
+.filter-btn:active {
+  transform: translate(-1px, -1px);
+}
+
 .filter-btn:hover::before {
   left: 0;
 }
@@ -162,8 +248,9 @@
 .filter-btn.active {
   background: var(--black);
   color: var(--white);
-  transform: translate(3px, 3px);
-  box-shadow: 2px 2px 0 var(--border-color);
+  transform: translate(3px, 3px) scale(1.02);
+  box-shadow: 2px 2px 0 var(--border-color), 0 0 0 4px var(--neo-yellow);
+  animation: filter-pop 260ms var(--ease-bounce);
 }
 
 .filter-btn.active::before {
@@ -175,6 +262,51 @@
    ======================================== */
 .todo-list {
   margin-top: 24px;
+}
+
+@keyframes toolbarIconShake {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-2px) rotate(-8deg);
+  }
+  50% {
+    transform: translateY(1px) rotate(6deg);
+  }
+  75% {
+    transform: translateY(-1px) rotate(-4deg);
+  }
+}
+
+@keyframes pulseShadow {
+  0%, 100% {
+    box-shadow: 2px 2px 0 var(--black);
+  }
+  50% {
+    box-shadow: 4px 4px 0 var(--neo-orange);
+  }
+}
+
+@keyframes filter-pop {
+  0% {
+    transform: translate(5px, 5px) scale(0.95);
+  }
+  60% {
+    transform: translate(2px, 2px) scale(1.04);
+  }
+  100% {
+    transform: translate(3px, 3px) scale(1.02);
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* ========================================
@@ -193,6 +325,23 @@
 
   .page-header h1 {
     font-size: 42px;
+  }
+}
+
+@media (max-width: 960px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .toolbar .btn-sm {
+    flex: 1 1 180px;
   }
 }
 
@@ -232,6 +381,24 @@
     text-align: center;
     padding: 10px 12px;
     font-size: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .toolbar-left,
+  .toolbar-right {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar .btn-sm {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .selection-count {
+    width: 100%;
+    text-align: center;
   }
 }
 

@@ -15,41 +15,18 @@
   justify-content: center;
   z-index: 1000;
   padding: 20px;
-  animation: overlay-fade-in 150ms ease-out;
-}
-
-@keyframes overlay-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 /* Dialog Box */
 .confirm-dialog {
   background: var(--white);
   border: 5px solid var(--black);
-  box-shadow: 12px 12px 0 var(--black);
+  box-shadow: 12px 12px 0 var(--black), 4px 4px 0 rgba(15, 15, 16, 0.16);
   max-width: 420px;
   width: 100%;
-  animation: dialog-pop-in 250ms var(--ease-bounce);
   position: relative;
-}
-
-@keyframes dialog-pop-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.9) translateY(20px);
-  }
-  60% {
-    transform: scale(1.02) translateY(-5px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 /* Decorative corner */
@@ -68,6 +45,7 @@
   font-size: 24px;
   font-weight: 900;
   line-height: 1;
+  border-radius: 8px;
 }
 
 .confirm-danger::before {
@@ -121,12 +99,14 @@
   flex: 1;
   padding: 14px 20px;
   font-size: 15px;
+  border-radius: 8px;
+  box-shadow: 6px 6px 0 var(--black), 2px 2px 0 rgba(15, 15, 16, 0.14);
 }
 
 .confirm-actions .btn-cancel {
   background: var(--white);
   border: 4px solid var(--black);
-  box-shadow: 4px 4px 0 var(--black);
+  box-shadow: 6px 6px 0 var(--black);
 }
 
 .confirm-actions .btn-cancel:hover {

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, Variants } from 'framer-motion';
 import { Todo, getDefaultColorById } from '../types';
 import { useTodoUpdate } from '../hooks/useTodoUpdate';
+import { layoutTransition, motionConfig } from '../motion/presets';
 import '../styles/TodoItem.css';
 
 interface TodoItemProps {
@@ -14,6 +16,36 @@ interface TodoItemProps {
   isSelected?: boolean;
   onSelect?: (id: number) => void;
 }
+
+type MotionState = {
+  isCompleted: boolean;
+  isSelected: boolean;
+  selectionMode: boolean;
+};
+
+const ITEM_EXIT_DURATION = 0.26;
+const BASE_SHADOW = 'var(--shadow-md)';
+const SELECTED_SHADOW = '0 0 0 3px var(--neo-cyan), var(--shadow-lg)';
+
+const todoItemVariants: Variants = {
+  hidden: { opacity: 0, y: 14, scale: 0.98, boxShadow: BASE_SHADOW, borderColor: 'var(--border-color)' },
+  show: (state: MotionState = { isCompleted: false, isSelected: false, selectionMode: false }) => ({
+    opacity: state.isCompleted ? 0.6 : 1,
+    scale: state.selectionMode ? (state.isSelected ? 1.03 : 0.99) : state.isCompleted ? 0.98 : 1,
+    y: 0,
+    x: 0,
+    filter: state.isCompleted ? 'saturate(0.7)' : 'none',
+    boxShadow: state.selectionMode && state.isSelected ? SELECTED_SHADOW : BASE_SHADOW,
+    borderColor: state.selectionMode && state.isSelected ? 'var(--neo-blue)' : 'var(--border-color)',
+    transition: { duration: motionConfig.duration, ease: motionConfig.ease },
+  }),
+  exit: {
+    opacity: 0,
+    x: -100,
+    scale: 0.96,
+    transition: { duration: ITEM_EXIT_DURATION, ease: motionConfig.ease },
+  },
+};
 
 const TodoItem: React.FC<TodoItemProps> = ({
   todo,
@@ -100,7 +132,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
       return;
     }
 
-    const success = await updateTodo(todo.id, todo, {
+    await updateTodo(todo.id, todo, {
       title: editTitle.trim(),
       description: editDescription.trim(),
     });
@@ -129,11 +161,28 @@ const TodoItem: React.FC<TodoItemProps> = ({
   const isCompleted = todo.status === 'completed';
   // 使用 Todo 自带颜色，旧数据则根据 ID 计算稳定默认色
   const backgroundColor = todo.color || getDefaultColorById(todo.id);
+  const motionState: MotionState = { isCompleted, isSelected, selectionMode };
+  const hoverShadow = selectionMode && isSelected ? SELECTED_SHADOW : 'var(--shadow-lg)';
+  const hoverMotion = isEditing ? undefined : {
+    y: -4,
+    boxShadow: hoverShadow,
+    transition: { duration: motionConfig.durationFast, ease: motionConfig.ease },
+  };
+  const tapMotion = isEditing ? undefined : { scale: 0.995 };
 
   return (
-    <div
+    <motion.div
       className={`todo-item ${isCompleted ? 'completed' : ''} ${isLeaving ? 'is-leaving' : ''} ${isEditing ? 'editing' : ''} ${isSelected ? 'selected' : ''}`}
       style={{ backgroundColor: isCompleted ? undefined : backgroundColor }}
+      layout
+      variants={todoItemVariants}
+      custom={motionState}
+      initial="hidden"
+      animate="show"
+      exit="exit"
+      transition={{ layout: layoutTransition }}
+      whileHover={hoverMotion}
+      whileTap={tapMotion}
       onClick={selectionMode ? () => onSelect?.(todo.id) : undefined}
     >
       {error && (
@@ -238,7 +287,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

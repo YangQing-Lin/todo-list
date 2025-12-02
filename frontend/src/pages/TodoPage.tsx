@@ -1,13 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Todo, TodoStats, BatchResult } from '../types';
+import { AnimatePresence, Variants, motion } from 'framer-motion';
+import { Todo, TodoStats } from '../types';
 import { todoApi, extractErrorMessage } from '../services/api';
 import TodoItem from '../components/TodoItem';
 import TodoForm from '../components/TodoForm';
 import StatsCard from '../components/StatsCard';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { fadeIn, motionConfig, staggerContainer } from '../motion/presets';
 import '../styles/TodoPage.css';
 
 const LEAVE_ANIMATION_MS = 260;
+
+const filterSwitchVariants: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: motionConfig.duration, ease: motionConfig.ease },
+  },
+  exit: {
+    opacity: 0,
+    y: -10,
+    transition: { duration: motionConfig.durationFast, ease: motionConfig.ease },
+  },
+};
 
 const TodoPage: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -16,6 +32,7 @@ const TodoPage: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [stats, setStats] = useState<TodoStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [statsRefreshing, setStatsRefreshing] = useState(false);
   const [leavingIds, setLeavingIds] = useState<Set<number>>(new Set());
   const leaveTimersRef = useRef<Map<number, number>>(new Map());
 
@@ -72,7 +89,9 @@ const TodoPage: React.FC = () => {
 
   // 获取统计信息（silent=true 时不触发 loading 状态，避免闪烁）
   const fetchStats = async (silent = false) => {
-    if (!silent) {
+    if (silent) {
+      setStatsRefreshing(true);
+    } else {
       setStatsLoading(true);
     }
     try {
@@ -85,7 +104,9 @@ const TodoPage: React.FC = () => {
     } catch (err: any) {
       console.error('获取统计信息失败:', extractErrorMessage(err, '获取统计信息失败'));
     } finally {
-      if (!silent) {
+      if (silent) {
+        setStatsRefreshing(false);
+      } else {
         setStatsLoading(false);
       }
     }
@@ -123,9 +144,22 @@ const TodoPage: React.FC = () => {
     try {
       const response = await todoApi.deleteTodo(id);
       if (response.success) {
+        const existingTimer = leaveTimersRef.current.get(id);
+        if (existingTimer) {
+          clearTimeout(existingTimer);
+          leaveTimersRef.current.delete(id);
+        }
+
         setLeavingIds(prev => {
           const updated = new Set(prev);
           updated.add(id);
+          return updated;
+        });
+
+        setSelectedIds(prev => {
+          if (!prev.has(id)) return prev;
+          const updated = new Set(prev);
+          updated.delete(id);
           return updated;
         });
 
@@ -243,7 +277,7 @@ const TodoPage: React.FC = () => {
 
   // 全选/取消全选（当前过滤后的列表）
   const handleSelectAll = () => {
-    const filteredIds = filteredTodos.map(t => t.id);
+    const filteredIds = visibleTodos.map(t => t.id);
     const allSelected = filteredIds.every(id => selectedIds.has(id));
 
     if (allSelected) {
@@ -400,6 +434,7 @@ const TodoPage: React.FC = () => {
     if (filter === 'completed') return todo.status === 'completed';
     return true;
   });
+  const visibleTodos = filteredTodos.filter(todo => !leavingIds.has(todo.id));
 
   // 本地统计数据（用于过滤按钮）
   const localStats = {
@@ -414,7 +449,12 @@ const TodoPage: React.FC = () => {
   }
 
   return (
-    <div className="todo-page">
+    <motion.div
+      className="todo-page"
+      variants={fadeIn}
+      initial="hidden"
+      animate="show"
+    >
       <div className="container">
         <header className="page-header">
           <h1>我的待办事项</h1>
@@ -424,22 +464,26 @@ const TodoPage: React.FC = () => {
         <div className="toolbar">
           <div className="toolbar-left">
             <button
-              className={`btn btn-sm ${selectionMode ? 'btn-primary' : 'btn-secondary'}`}
+              className={`btn btn-sm toolbar-btn toggle-select-btn ${selectionMode ? 'btn-primary is-active' : 'btn-secondary'}`}
               onClick={toggleSelectionMode}
             >
-              {selectionMode ? '退出多选' : '多选模式'}
+              <span className="toolbar-icon" aria-hidden="true">{selectionMode ? '✕' : '⬚'}</span>
+              <span className="btn-label">{selectionMode ? '退出多选' : '多选模式'}</span>
             </button>
 
             {selectionMode && (
               <>
                 <button
-                  className="btn btn-sm btn-secondary"
+                  className="btn btn-sm btn-secondary toolbar-btn select-all-btn"
                   onClick={handleSelectAll}
-                  disabled={filteredTodos.length === 0}
+                  disabled={visibleTodos.length === 0}
                 >
-                  {filteredTodos.length > 0 && filteredTodos.every(t => selectedIds.has(t.id))
-                    ? '取消全选'
-                    : '全选'}
+                  <span className="toolbar-icon" aria-hidden="true">☑</span>
+                  <span className="btn-label">
+                    {visibleTodos.length > 0 && visibleTodos.every(t => selectedIds.has(t.id))
+                      ? '取消全选'
+                      : '全选'}
+                  </span>
                 </button>
                 <span className="selection-count">
                   已选 {selectedIds.size} 项
@@ -452,40 +496,46 @@ const TodoPage: React.FC = () => {
             {selectionMode ? (
               <>
                 <button
-                  className="btn btn-sm btn-success"
+                  className={`btn btn-sm btn-success toolbar-btn batch-action-btn${batchLoading ? ' is-loading' : ''}`}
                   onClick={() => requestBatchAction('complete')}
                   disabled={selectedIds.size === 0 || batchLoading}
                 >
-                  {batchLoading ? '处理中...' : '批量完成'}
+                  {batchLoading && <span className="btn-spinner" aria-hidden="true" />}
+                  <span className="btn-label">{batchLoading ? '处理中...' : '批量完成'}</span>
                 </button>
                 <button
-                  className="btn btn-sm btn-danger"
+                  className={`btn btn-sm btn-danger toolbar-btn batch-action-btn${batchLoading ? ' is-loading' : ''}`}
                   onClick={() => requestBatchAction('delete')}
                   disabled={selectedIds.size === 0 || batchLoading}
                 >
-                  {batchLoading ? '处理中...' : '批量删除'}
+                  {batchLoading && <span className="btn-spinner" aria-hidden="true" />}
+                  <span className="btn-label">{batchLoading ? '处理中...' : '批量删除'}</span>
                 </button>
               </>
             ) : (
               <>
                 <button
-                  className="btn btn-sm btn-secondary"
+                  className="btn btn-sm btn-secondary toolbar-btn export-btn"
                   onClick={handleExportJSON}
                 >
-                  导出 JSON
+                  <span className="toolbar-icon" aria-hidden="true">⤴</span>
+                  <span className="btn-label">导出 JSON</span>
                 </button>
                 <button
-                  className="btn btn-sm btn-secondary"
+                  className="btn btn-sm btn-secondary toolbar-btn export-btn"
                   onClick={handleExportCSV}
                 >
-                  导出 CSV
+                  <span className="toolbar-icon" aria-hidden="true">⤴</span>
+                  <span className="btn-label">导出 CSV</span>
                 </button>
                 <button
-                  className="btn btn-sm btn-primary"
+                  className={`btn btn-sm btn-primary toolbar-btn import-btn${importLoading ? ' is-loading' : ''}`}
                   onClick={handleImportClick}
                   disabled={importLoading}
                 >
-                  {importLoading ? '导入中...' : '导入'}
+                  {importLoading && <span className="btn-spinner" aria-hidden="true" />}
+                  <span className="toolbar-icon" aria-hidden="true">⤵</span>
+                  <span className="btn-label">{importLoading ? '导入中...' : '导入'}</span>
                 </button>
                 <input
                   ref={fileInputRef}
@@ -508,7 +558,7 @@ const TodoPage: React.FC = () => {
 
         <div className="page-layout">
           <aside className="sidebar">
-            <StatsCard stats={stats} loading={statsLoading} />
+            <StatsCard stats={stats} loading={statsLoading} refreshing={statsRefreshing} />
           </aside>
 
           <main className="main-content">
@@ -535,34 +585,61 @@ const TodoPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="todo-list">
-              {filteredTodos.length === 0 ? (
-                <div className="empty-state">
-                  <h3>
-                    {filter === 'completed' ? '还没有完成的任务' :
-                     filter === 'pending' ? '没有待办任务了！' :
-                     '还没有待办事项'}
-                  </h3>
-                  <p>
-                    {filter === 'all' && '添加你的第一个待办事项吧！'}
-                  </p>
-                </div>
-              ) : (
-                filteredTodos.map(todo => (
-                  <TodoItem
-                    key={todo.id}
-                    todo={todo}
-                    onToggle={handleToggle}
-                    onDelete={requestDelete}
-                    onUpdate={handleTodoUpdated}
-                    isLeaving={leavingIds.has(todo.id)}
-                    selectionMode={selectionMode}
-                    isSelected={selectedIds.has(todo.id)}
-                    onSelect={handleSelect}
-                  />
-                ))
-              )}
-            </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={filter}
+                className="todo-list"
+                layout
+                variants={filterSwitchVariants}
+                initial="hidden"
+                animate="show"
+                exit="exit"
+              >
+                <motion.div
+                  layout
+                  variants={staggerContainer}
+                  initial="hidden"
+                  animate="show"
+                  transition={{ staggerChildren: motionConfig.stagger, delayChildren: 0.06 }}
+                >
+                  <AnimatePresence mode="popLayout">
+                    {visibleTodos.length === 0 ? (
+                      <motion.div
+                        key="empty-state"
+                        className="empty-state"
+                        variants={fadeIn}
+                        initial="hidden"
+                        animate="show"
+                        exit="exit"
+                      >
+                        <h3>
+                          {filter === 'completed' ? '还没有完成的任务' :
+                           filter === 'pending' ? '没有待办任务了！' :
+                           '还没有待办事项'}
+                        </h3>
+                        <p>
+                          {filter === 'all' && '添加你的第一个待办事项吧！'}
+                        </p>
+                      </motion.div>
+                    ) : (
+                      visibleTodos.map(todo => (
+                        <TodoItem
+                          key={todo.id}
+                          todo={todo}
+                          onToggle={handleToggle}
+                          onDelete={requestDelete}
+                          onUpdate={handleTodoUpdated}
+                          isLeaving={leavingIds.has(todo.id)}
+                          selectionMode={selectionMode}
+                          isSelected={selectedIds.has(todo.id)}
+                          onSelect={handleSelect}
+                        />
+                      ))
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              </motion.div>
+            </AnimatePresence>
           </main>
         </div>
       </div>
@@ -593,7 +670,7 @@ const TodoPage: React.FC = () => {
         onConfirm={handleBatchConfirm}
         onCancel={cancelBatchAction}
       />
-    </div>
+    </motion.div>
   );
 };
 
