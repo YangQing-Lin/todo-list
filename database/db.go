@@ -273,6 +273,10 @@ func (db *DB) ListTodos(filter TodoFilter) ([]model.Todo, int, error) {
 		todos = append(todos, todo)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("迭代执行失败：%w", err)
+	}
+
 	return todos, total, nil
 }
 
@@ -1061,4 +1065,150 @@ func (db *DB) BatchDeleteTodosPartialContext(ctx context.Context, ids []int) (re
 	}
 
 	return result, nil
+}
+
+// ImportTodosContext 批量导入待办事项(事务保证，支持 Context)
+// 注意：使用命名返回值 (err error)，让 defer 能访问到错误
+func (db *DB) ImportTodosContext(ctx context.Context, todos []model.Todo) (imported int, err error) {
+	if len(todos) == 0 {
+		return 0, nil
+	}
+
+	if len(todos) > 1000 {
+		return 0, fmt.Errorf("单次导入最多 1000 条，当前：%d", len(todos))
+	}
+
+	// 使用 BeginTx 支持 Context
+	tx, err := db.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("开启事务失败：%w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("回滚失败: %v (原始错误: %v)", rbErr, err)
+			}
+		}
+	}()
+
+	// 预先声明 stmt，避免使用 := 带来的潜在混淆
+	var stmt *sql.Stmt
+	stmt, err = tx.PrepareContext(ctx, `
+        INSERT INTO todos (title, description, status, due_date, created_at, updated_at, version)
+        VALUES (?, ?, ?, ?, ?, ?, 1)
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("准备语句失败：%w", err)
+	}
+	defer stmt.Close()
+
+	now := time.Now().UTC()
+	// imported 已在命名返回值中声明，默认值为 0
+
+	for _, todo := range todos {
+		// 检查 Context 是否已取消
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			return imported, err
+		default:
+		}
+
+		if todo.Title == "" {
+			continue // 跳过无效数据
+		}
+
+		if todo.Status == "" {
+			todo.Status = "pending"
+		}
+		if todo.CreatedAt.IsZero() {
+			todo.CreatedAt = now
+		}
+		todo.UpdatedAt = now
+
+		_, err = stmt.ExecContext(ctx,
+			todo.Title,
+			todo.Description,
+			todo.Status,
+			todo.DueDate,
+			todo.CreatedAt,
+			todo.UpdatedAt,
+		)
+		if err != nil {
+			return imported, fmt.Errorf("插入第 %d 条失败：%w", imported+1, err)
+		}
+		imported++
+	}
+
+	if err = tx.Commit(); err != nil {
+		return 0, fmt.Errorf("提交事务失败：%w", err)
+	}
+
+	return imported, nil
+}
+
+// ExportTodosContext 导出所有待办事项(用于导出功能，支持 Context)
+func (db *DB) ExportTodosContext(ctx context.Context) ([]model.Todo, error) {
+	query := `
+        SELECT id, version, title, description, status, due_date,
+               created_at, updated_at, completed_at
+        FROM todos
+        ORDER BY created_at DESC
+    `
+
+	rows, err := db.conn.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("查询失败：%w", err)
+	}
+	defer rows.Close()
+
+	var todos []model.Todo
+	for rows.Next() {
+		// 检查 Context 是否已取消
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		var todo model.Todo
+		var dueDate, completedAt sql.NullString
+
+		err := rows.Scan(
+			&todo.ID,
+			&todo.Version,
+			&todo.Title,
+			&todo.Description,
+			&todo.Status,
+			&dueDate,
+			&todo.CreatedAt,
+			&todo.UpdatedAt,
+			&completedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("扫描失败：%w", err)
+		}
+
+		if dueDate.Valid {
+			if t, parseErr := time.Parse(time.RFC3339, dueDate.String); parseErr == nil {
+				todo.DueDate = &t
+			}
+		}
+		if completedAt.Valid {
+			if t, parseErr := time.Parse(time.RFC3339, completedAt.String); parseErr == nil {
+				todo.CompletedAt = &t
+			}
+		}
+
+		todos = append(todos, todo)
+	}
+
+	// 这里捕获的是"迭代过程中的网络/数据库"错误
+	// rows.Next() 返回 false 可能是"正常结束"或"异常中断", 必须用 rows.Err() 区分
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("迭代行失败：%w", err)
+	}
+
+	return todos, nil
 }

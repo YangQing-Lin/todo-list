@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -57,6 +58,8 @@ const (
 	DeleteTimeout  = 2 * time.Second  // 删除超时
 	StatsTimeout   = 5 * time.Second  // 统计查询超时
 	BatchTimeout   = 10 * time.Second // 批量操作超时
+	ExportTimeout  = 30 * time.Second // 导出超时（可能数据量大）
+	ImportTimeout  = 60 * time.Second // 导入超时（可能数据量大）
 )
 
 // NewHandler 创建新的处理器
@@ -664,4 +667,127 @@ func (h *Handler) BatchDeleteTodosPartial(w http.ResponseWriter, r *http.Request
 		Message: "批量删除操作完成",
 	}
 	h.sendJSON(w, http.StatusOK, response)
+}
+
+// ExportTodos 导出待办事项（带超时控制）
+func (h *Handler) ExportTodos(w http.ResponseWriter, r *http.Request) {
+	// 创建带超时的 Context（导出可能数据量大，超时设长一些）
+	ctx, cancel := context.WithTimeout(r.Context(), ExportTimeout)
+	defer cancel()
+
+	format := r.URL.Query().Get("format")
+	if format == "" {
+		format = "json"
+	}
+
+	// 获取所有数据（使用 Context 版本）
+	todos, err := h.db.ExportTodosContext(ctx)
+	if err != nil {
+		// 区分超时错误和其他错误
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("ExportTodos timeout: %v", err)
+			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "导出超时，数据量过大")
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			log.Printf("ExportTodos canceled: %v", err)
+			return
+		}
+		log.Printf("导出失败：%v", err)
+		h.sendError(w, http.StatusInternalServerError, "EXPORT_ERROR", "导出失败")
+		return
+	}
+
+	switch format {
+	case "csv":
+		h.exportCSV(w, todos)
+	case "json":
+		h.exportJSON(w, todos)
+	default:
+		h.sendError(w, http.StatusBadRequest, "INVALID_FORMAT", "不支持的格式，请使用 json 或 csv")
+	}
+}
+
+// exportCSV 导出为 CSV 格式
+func (h *Handler) exportCSV(w http.ResponseWriter, todos []model.Todo) {
+	// 设置响应头
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=todos.csv")
+
+	// UTF-8 BOM，让 Excel 正确识别中文
+	w.Write([]byte{0xEF, 0xBB, 0xBF})
+
+	writer := csv.NewWriter(w)
+	defer writer.Flush()
+
+	// 写入表头
+	headers := []string{"ID", "标题", "描述", "状态", "截止日期", "创建时间", "完成时间"}
+	if err := writer.Write(headers); err != nil {
+		log.Printf("写入 CSV 表头失败: %v", err)
+		return
+	}
+
+	// 写入数据
+	for _, todo := range todos {
+		row := []string{
+			strconv.Itoa(todo.ID),
+			todo.Title,
+			todo.Description,
+			todo.Status,
+			formatTimePtr(todo.DueDate),
+			todo.CreatedAt.Format("2006-01-02 15:04:05"),
+			formatTimePtr(todo.CompletedAt),
+		}
+		if err := writer.Write(row); err != nil {
+			log.Printf("写入 CSV 行失败：%v", err)
+			return
+		}
+	}
+
+}
+
+// exportJSON 导出为 JSON 格式
+func (h *Handler) exportJSON(w http.ResponseWriter, todos []model.Todo) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=todos.json")
+
+	// 格式化输出，方便阅读
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+
+	if err := encoder.Encode(todos); err != nil {
+		log.Printf("写入 JSON 失败: %v", err)
+	}
+}
+
+// formatTimePtr 格式化时间指针
+func formatTimePtr(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format("2006-01-02 15:04:05")
+}
+
+// ImportRequest 导入请求体(JSON 格式)
+type ImportRequest struct {
+	Todos []ImportTodoItem `json:"todos"`
+}
+
+// ImportTodoItem 导入的单个待办事项
+type ImportTodoItem struct {
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Status      string  `json:"status"`
+	DueDate     *string `json:"due_date"`
+}
+
+// ImportTodos 导入待办事项（带超时控制）
+func (h *Handler) ImportTodos(w http.ResponseWriter, r *http.Request) {
+	// 创建带超时的 Context（导入可能数据量大，超时设长一些）
+	ctx, cancel := context.WithTimeout(r.Context(), ImportTimeout)
+	defer cancel()
+
+	// 限制请求体大小
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10MB
+	defer r.Body.Close()
 }
