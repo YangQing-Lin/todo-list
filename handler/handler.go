@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 	"todo-list/database"
 	"todo-list/model"
@@ -790,4 +792,176 @@ func (h *Handler) ImportTodos(w http.ResponseWriter, r *http.Request) {
 	// 限制请求体大小
 	r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10MB
 	defer r.Body.Close()
+
+	contentType := r.Header.Get("Content-Type")
+
+	var todos []model.Todo
+	var err error
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// 文件上传方式
+		todos, err = h.parseImportFile(r)
+	} else {
+		// JSON 请求体方式
+		todos, err = h.parseImportJSON(r)
+	}
+
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, "PARSE_ERROR", err.Error())
+		return
+	}
+
+	if len(todos) == 0 {
+		h.sendError(w, http.StatusBadRequest, "EMPTY_DATA", "没有可导入的数据")
+		return
+	}
+
+	// 执行导入（使用 Context 版本）
+	imported, err := h.db.ImportTodosContext(ctx, todos)
+	if err != nil {
+		// 区分超时错误和其他错误
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("ImportTodos timeout: %v", err)
+			h.sendError(w, http.StatusRequestTimeout, "TIMEOUT", "导入超时，数据量过大")
+			return
+		}
+		if errors.Is(err, context.Canceled) {
+			log.Printf("ImportTodos canceled: %v", err)
+			return
+		}
+		log.Printf("导入失败：%v", err)
+		h.sendError(w, http.StatusInternalServerError, "IMPORT_ERROR", err.Error())
+		return
+	}
+
+	h.sendJSON(w, http.StatusOK, Response{
+		Success: true,
+		Data: map[string]interface{}{
+			"imported": imported,
+			"total":    len(todos),
+		},
+		Message: fmt.Sprintf("成功导入 %d 条待办事项", imported),
+	})
+}
+
+// parseImportJSON 解析 JSON 请求体
+func (h *Handler) parseImportJSON(r *http.Request) ([]model.Todo, error) {
+	var req ImportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, fmt.Errorf("JSON 解析失败：%w", err)
+	}
+	todos := make([]model.Todo, 0, len(req.Todos))
+	for _, item := range req.Todos {
+		todo := model.Todo{
+			Title:       strings.TrimSpace(item.Title),
+			Description: strings.TrimSpace(item.Description),
+			Status:      item.Status,
+		}
+
+		// 解析截止日期
+		if item.DueDate != nil && *item.DueDate != "" {
+			if t, err := time.Parse("2006-01-02", *item.DueDate); err == nil {
+				todo.DueDate = &t
+			} else if t, err := time.Parse(time.RFC3339, *item.DueDate); err == nil {
+				todo.DueDate = &t
+			}
+		}
+
+		todos = append(todos, todo)
+	}
+
+	return todos, nil
+}
+
+// parseImportFile 解析上传的文件
+func (h *Handler) parseImportFile(r *http.Request) ([]model.Todo, error) {
+	if err := r.ParseMultipartForm(100 << 20); err != nil {
+		return nil, fmt.Errorf("解析表单失败：%w", err)
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		return nil, fmt.Errorf("获取文件失败：%w", err)
+	}
+	defer file.Close()
+
+	filename := strings.ToLower(header.Filename)
+
+	if strings.HasSuffix(filename, ".json") {
+		return h.parseJSONFile(file)
+	} else if strings.HasSuffix(filename, ".csv") {
+		return h.parseCSVFile(file)
+	}
+
+	return nil, fmt.Errorf("不支持的文件格式，请使用 .json 或 .csv")
+}
+
+// parseJSONFile 解析 JSON 文件
+func (h *Handler) parseJSONFile(file io.Reader) ([]model.Todo, error) {
+	var todos []model.Todo
+	if err := json.NewDecoder(file).Decode(&todos); err != nil {
+		return nil, fmt.Errorf("JSON 文件解析失败：%w", err)
+	}
+	return todos, nil
+}
+
+// parseCSVFile 解析 CSV 文件
+func (h *Handler) parseCSVFile(file io.Reader) ([]model.Todo, error) {
+	reader := csv.NewReader(file)
+
+	// 读取表头
+	headers, err := reader.Read()
+	if err != nil {
+		return nil, fmt.Errorf("读取 CSV 表头失败：%w", err)
+	}
+
+	// 建立列名到索引的映射
+	colIndex := make(map[string]int)
+	for i, h := range headers {
+		colIndex[strings.ToLower(strings.TrimSpace(h))] = i
+	}
+
+	// 检查必需列
+	titleIdx, hasTitleCol := colIndex["标题"]
+	if !hasTitleCol {
+		titleIdx, hasTitleCol = colIndex["title"]
+	}
+	if !hasTitleCol {
+		return nil, fmt.Errorf("CSV 缺少标题列")
+	}
+
+	var todos []model.Todo
+	lineNum := 1
+
+	for {
+		lineNum++
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("读取第 %d 行失败：%w", lineNum, err)
+		}
+
+		todo := model.Todo{
+			Title: strings.TrimSpace(record[titleIdx]),
+		}
+
+		// 可选列
+		if idx, ok := colIndex["描述"]; ok && idx < len(record) {
+			todo.Description = strings.TrimSpace(record[idx])
+		} else if idx, ok := colIndex["description"]; ok && idx < len(record) {
+			todo.Description = strings.TrimSpace(record[idx])
+		}
+
+		if idx, ok := colIndex["状态"]; ok && idx < len(record) {
+			todo.Status = strings.TrimSpace(record[idx])
+		} else if idx, ok := colIndex["status"]; ok && idx < len(record) {
+			todo.Status = strings.TrimSpace(record[idx])
+		}
+
+		todos = append(todos, todo)
+	}
+
+	return todos, nil
 }

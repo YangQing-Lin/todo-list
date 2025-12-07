@@ -69,6 +69,12 @@ func SetupRoutes(h *handler.Handler) *http.ServeMux {
 		mux.HandleFunc("OPTIONS "+base+"/batch/complete", withMiddlewares(optionsHandler))
 		mux.HandleFunc("OPTIONS "+base+"/batch/delete", withMiddlewares(optionsHandler))
 
+		// 导入导出路由
+		mux.HandleFunc("GET "+base+"/export", withMiddlewares(h.ExportTodos))
+		mux.HandleFunc("POST "+base+"/import", withMiddlewares(h.ImportTodos))
+		mux.HandleFunc("OPTIONS "+base+"/export", withMiddlewares(optionsHandler))
+		mux.HandleFunc("OPTIONS "+base+"/import", withMiddlewares(optionsHandler))
+
 		mux.HandleFunc("PUT "+base+"/{id}", withMiddlewares(h.UpdateTodo))
 		mux.HandleFunc("DELETE "+base+"/{id}", withMiddlewares(h.DeleteTodo))
 		mux.HandleFunc("OPTIONS "+base+"/{id}", withMiddlewares(optionsHandler))
